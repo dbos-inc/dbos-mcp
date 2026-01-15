@@ -11,9 +11,8 @@ uv sync
 ## Configuration
 
 ```bash
-export DBOS_CONDUCTOR_URL="http://localhost:8090"
 export DBOS_CONDUCTOR_TOKEN="your-token"
-export DBOS_CONDUCTOR_ORG_ID="default_id"
+export DBOS_CONDUCTOR_ORG_ID="your-org"
 ```
 
 ## Run

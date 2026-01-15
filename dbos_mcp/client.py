@@ -5,9 +5,15 @@ from typing import Any
 
 import httpx
 
-CONDUCTOR_URL = os.environ.get("DBOS_CONDUCTOR_URL", "http://localhost:8090")
-CONDUCTOR_TOKEN = os.environ.get("DBOS_CONDUCTOR_TOKEN", "")
-CONDUCTOR_ORG_ID = os.environ.get("DBOS_CONDUCTOR_ORG_ID", "default_id")
+CONDUCTOR_URL = "https://cloud.dbos.dev/conductor/v1alpha1"
+
+CONDUCTOR_TOKEN = os.environ.get("DBOS_CONDUCTOR_TOKEN")
+if not CONDUCTOR_TOKEN:
+    raise RuntimeError("DBOS_CONDUCTOR_TOKEN environment variable is required")
+
+CONDUCTOR_ORG_ID = os.environ.get("DBOS_CONDUCTOR_ORG_ID")
+if not CONDUCTOR_ORG_ID:
+    raise RuntimeError("DBOS_CONDUCTOR_ORG_ID environment variable is required")
 
 
 def _headers() -> dict[str, str]:
