@@ -5,40 +5,28 @@ from typing import Any
 
 import httpx
 
-CONDUCTOR_URL = "https://cloud.dbos.dev/conductor/v1alpha1"
+BASE_URL = "https://cloud.dbos.dev/conductor/v1alpha1"
 
-CONDUCTOR_TOKEN = os.environ.get("DBOS_CONDUCTOR_TOKEN")
-if not CONDUCTOR_TOKEN:
+TOKEN = os.environ.get("DBOS_CONDUCTOR_TOKEN")
+if not TOKEN:
     raise RuntimeError("DBOS_CONDUCTOR_TOKEN environment variable is required")
 
-CONDUCTOR_ORG_ID = os.environ.get("DBOS_CONDUCTOR_ORG_ID")
-if not CONDUCTOR_ORG_ID:
+ORG = os.environ.get("DBOS_CONDUCTOR_ORG_ID")
+if not ORG:
     raise RuntimeError("DBOS_CONDUCTOR_ORG_ID environment variable is required")
 
-
-def _headers() -> dict[str, str]:
-    headers = {"Content-Type": "application/json"}
-    if CONDUCTOR_TOKEN:
-        headers["Authorization"] = f"Bearer {CONDUCTOR_TOKEN}"
-    return headers
-
-
-def _applications_url(path: str = "") -> str:
-    base = f"{CONDUCTOR_URL}/api/{CONDUCTOR_ORG_ID}/applications"
-    return f"{base}/{path}" if path else base
-
-
-def _workflows_url(app: str, path: str = "") -> str:
-    base = f"{_applications_url(app)}/workflows"
-    return f"{base}/{path}" if path else base
+HEADERS = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {TOKEN}",
+}
 
 
 async def list_applications() -> list[dict[str, Any]]:
     """List all applications."""
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            _applications_url(),
-            headers=_headers(),
+            f"{BASE_URL}/api/{ORG}/applications",
+            headers=HEADERS,
             timeout=30.0,
         )
         response.raise_for_status()
@@ -90,9 +78,9 @@ async def list_workflows(
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{_workflows_url(application_name)}/",
+            f"{BASE_URL}/api/{ORG}/applications/{application_name}/workflows/",
             json=body,
-            headers=_headers(),
+            headers=HEADERS,
             timeout=30.0,
         )
         response.raise_for_status()
@@ -106,8 +94,8 @@ async def get_workflow(
     """Get a specific workflow by ID."""
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            _workflows_url(application_name, workflow_id),
-            headers=_headers(),
+            f"{BASE_URL}/api/{ORG}/applications/{application_name}/workflows/{workflow_id}",
+            headers=HEADERS,
             timeout=30.0,
         )
         response.raise_for_status()
