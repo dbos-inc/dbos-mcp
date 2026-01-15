@@ -53,7 +53,6 @@ async def login() -> dict[str, str]:
             f"https://{AUTH0_DOMAIN}/oauth/device/code",
             data={
                 "client_id": AUTH0_CLIENT_ID,
-                "scope": "offline_access",
                 "audience": AUTH0_AUDIENCE,
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
@@ -118,7 +117,6 @@ async def login_complete() -> dict[str, str]:
         # Save credentials and clean up
         credentials = {
             "token": access_token,
-            "refreshToken": token_data.get("refresh_token", ""),
             "userName": profile.get("Name", ""),
             "organization": profile.get("Organization", ""),
         }
