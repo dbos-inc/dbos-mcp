@@ -8,8 +8,38 @@ from dbos_mcp import client
 
 mcp = FastMCP(
     name="dbos-conductor",
-    instructions="MCP server for DBOS Conductor workflow introspection and management.",
+    instructions="MCP server for DBOS Conductor workflow introspection and management. Call login first if not authenticated.",
 )
+
+
+@mcp.tool()
+async def login() -> dict[str, Any]:
+    """Start DBOS Cloud login flow.
+
+    Returns a URL that the user must open in their browser to authenticate.
+    After authenticating, call login_complete to finish the login process.
+
+    Returns:
+        Dictionary with url to visit and instructions.
+    """
+    return await client.login()
+
+
+@mcp.tool()
+async def login_complete() -> dict[str, Any]:
+    """Complete DBOS Cloud login after authenticating in browser.
+
+    Call this after you have opened the login URL and authenticated.
+
+    Returns:
+        Dictionary with userName and organization on success.
+    """
+    result = await client.login_complete()
+    return {
+        "message": f"Successfully logged in as {result['userName']}",
+        "userName": result["userName"],
+        "organization": result["organization"],
+    }
 
 
 @mcp.tool()
