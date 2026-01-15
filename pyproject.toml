@@ -1,15 +1,23 @@
 [project]
 name = "dbos-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "MCP server for DBOS Conductor workflow introspection and management"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "httpx>=0.27.0",
     "mcp[cli]>=1.25.0",
 ]
+
+[project.scripts]
+dbos-mcp = "dbos_mcp.server:main"
 
 [dependency-groups]
 dev = [
     "black>=25.12.0",
     "isort>=7.0.0",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
