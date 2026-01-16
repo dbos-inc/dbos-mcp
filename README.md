@@ -1,8 +1,12 @@
 # DBOS MCP Server
 
-MCP server for DBOS Conductor workflow introspection and management.
+This repository contains a Model Context Protocol (MCP) server with tools that can analyze and manage your DBOS workflows.
+It enables LLMs to retrieve information on your applications' workflows and steps, for example to help you debug issues in development or production.
+To use this server, your application should be connected to [Conductor](https://docs.dbos.dev/production/conductor).
 
-## Installation
+## Setup With Claude Code
+
+First, install this MCP server:
 
 ```bash
 claude mcp add dbos-conductor -- uvx dbos-mcp
@@ -15,13 +19,20 @@ Credentials are stored in `~/.dbos-mcp/credentials`.
 
 ## Tools
 
+#### Authentication
 - `login` - Start login flow (returns URL to visit)
 - `login_complete` - Complete login after authenticating
+
+#### Application Introspection
 - `list_applications` - List all applications
+- `list_executors` - List connected executors for an application
+
+#### Workflow Introspectino
 - `list_workflows` - List/filter workflows
 - `get_workflow` - Get workflow details
 - `list_steps` - Get execution steps for a workflow
-- `list_executors` - List connected executors for an application
+
+#### Workflow Management
 - `cancel_workflow` - Cancel a running workflow
 - `resume_workflow` - Resume a pending or failed workflow
 - `fork_workflow` - Fork a workflow from a specific step
