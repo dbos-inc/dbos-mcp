@@ -1,7 +1,6 @@
 """
 Custom Hatch build hook for branch-aware versioning.
 
-This provides the same versioning strategy as dbos-transact-py:
 1. Release versions: From release/* branches, version is the git tag (e.g., 0.2.0)
 2. Preview versions: From main, PEP440 alpha releases (e.g., 0.3.0a6)
 3. Test versions: From feature branches, local versions with git hash (e.g., 0.3.0a6+g1a2b3c4)

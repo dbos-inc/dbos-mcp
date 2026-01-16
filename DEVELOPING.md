@@ -14,12 +14,6 @@ To test your local changes with Claude Code:
 claude mcp add dbos-conductor -- uv run --directory /path/to/dbos-mcp dbos-mcp
 ```
 
-Or from within the repo directory:
-
-```bash
-claude mcp add dbos-conductor -- uv run dbos-mcp
-```
-
 To remove it:
 
 ```bash
