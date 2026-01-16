@@ -147,47 +147,62 @@ async def list_applications() -> list[dict[str, Any]]:
 
 async def list_workflows(
     application_name: str,
-    status: str | None = None,
-    workflow_name: str | None = None,
     workflow_uuids: list[str] | None = None,
+    workflow_name: str | None = None,
     authenticated_user: str | None = None,
     start_time: str | None = None,
     end_time: str | None = None,
+    status: str | None = None,
     application_version: str | None = None,
+    forked_from: str | None = None,
+    queue_name: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
     sort_desc: bool | None = None,
+    workflow_id_prefix: str | None = None,
     load_input: bool | None = None,
     load_output: bool | None = None,
+    executor_id: str | None = None,
+    queues_only: bool | None = None,
 ) -> list[dict[str, Any]]:
     """List workflows with optional filters."""
     creds = _get_credentials()
     body: dict[str, Any] = {}
 
-    if status is not None:
-        body["status"] = status
-    if workflow_name is not None:
-        body["workflow_name"] = workflow_name
     if workflow_uuids is not None:
         body["workflow_uuids"] = workflow_uuids
+    if workflow_name is not None:
+        body["workflow_name"] = workflow_name
     if authenticated_user is not None:
         body["authenticated_user"] = authenticated_user
     if start_time is not None:
         body["start_time"] = start_time
     if end_time is not None:
         body["end_time"] = end_time
+    if status is not None:
+        body["status"] = status
     if application_version is not None:
         body["application_version"] = application_version
+    if forked_from is not None:
+        body["forked_from"] = forked_from
+    if queue_name is not None:
+        body["queue_name"] = queue_name
     if limit is not None:
         body["limit"] = limit
     if offset is not None:
         body["offset"] = offset
     if sort_desc is not None:
         body["sort_desc"] = sort_desc
+    if workflow_id_prefix is not None:
+        body["workflow_id_prefix"] = workflow_id_prefix
     if load_input is not None:
         body["load_input"] = load_input
     if load_output is not None:
         body["load_output"] = load_output
+    if executor_id is not None:
+        body["executor_id"] = executor_id
+    if queues_only is not None:
+        body["queues_only"] = queues_only
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
