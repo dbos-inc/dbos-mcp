@@ -8,30 +8,15 @@ MCP server for DBOS Conductor.
 uv sync
 ```
 
-## Run
-
-```bash
-uv run dbos-mcp
-```
-
-## Claude Code
+## Use With Claude Code
 
 ```bash
 claude mcp add dbos-conductor -- uv run --directory /path/to/dbos-mcp dbos-mcp
 ```
 
-Then in Claude Code:
-```
-You: "Login to DBOS"
-→ Returns a URL
-→ You click the URL and authenticate in browser
-
-You: "Complete the login"
-→ "Successfully logged in as you@example.com"
-
-You: "List my applications"
-→ Works
-```
+Then start up Claude Code and ask it questions about your DBOS apps!
+For example, ask it to list your applications.
+Claude will prompt you to log in, which you can do by clicking the URL it offers and authenticating in the browser.
 
 ## Tools
 
