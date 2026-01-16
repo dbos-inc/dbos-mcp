@@ -235,3 +235,22 @@ async def get_workflow(
         )
         response.raise_for_status()
         return response.json()
+
+
+async def list_steps(
+    application_name: str,
+    workflow_id: str,
+) -> list[dict[str, Any]]:
+    """Get execution steps for a workflow."""
+    creds = _get_credentials()
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/{workflow_id}/steps",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        return response.json()

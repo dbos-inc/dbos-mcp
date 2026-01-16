@@ -209,6 +209,40 @@ async def get_workflow(
     )
 
 
+@mcp.tool()
+async def list_steps(
+    application_name: str,
+    workflow_id: str,
+) -> dict[str, Any]:
+    """Get execution steps for a workflow from DBOS Conductor.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_id (string, required): UUID of the workflow
+
+    Returns:
+        steps: Array of step objects, each containing:
+            - function_id (int): The unique ID of the step in the workflow
+            - function_name (string): The name of the step
+            - output (string, optional): The step's output, if any
+            - error (string, optional): The error the step threw, if any
+            - child_workflow_id (string, optional): If the step starts or retrieves the result of a workflow, its ID
+            - started_at_epoch_ms (string, optional): The Unix epoch timestamp at which this step started
+            - completed_at_epoch_ms (string, optional): The Unix epoch timestamp at which this step completed
+        count (int): Number of steps returned
+        workflow_id (string): The workflow ID queried
+    """
+    steps = await client.list_steps(
+        application_name=application_name,
+        workflow_id=workflow_id,
+    )
+    return {
+        "steps": steps,
+        "count": len(steps),
+        "workflow_id": workflow_id,
+    }
+
+
 def main():
     mcp.run()
 

@@ -40,5 +40,6 @@ You: "List my applications"
 - `list_applications` - List all applications
 - `list_workflows` - List/filter workflows
 - `get_workflow` - Get workflow details
+- `list_steps` - Get execution steps for a workflow
 
 Credentials stored in `~/.dbos-mcp/credentials`.
