@@ -309,10 +309,11 @@ async def resume_workflow(
     application_name: str,
     workflow_id: str,
 ) -> dict[str, Any]:
-    """Resume a pending or failed workflow.
+    """Resume a workflow.
 
-    Resumes execution of a workflow that is in PENDING status or that previously
-    failed with an error.
+    Resumes execution of a workflow that is in CANCELLED state.
+    You can also use this on a workflow in the ENQUEUED state to immediately start it, bypassing its queue.
+    You cannot resume a workflow in any other state.
 
     Args:
         application_name (string, required): Name of the DBOS application
