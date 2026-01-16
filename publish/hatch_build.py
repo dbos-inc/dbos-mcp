@@ -111,4 +111,6 @@ class DBOSVersionSource(VersionSourceInterface):
 
 def get_version() -> str:
     """Entry point for hatch version source."""
-    return DBOSVersionSource(root=".", config={}).get_version_data()["version"]
+    version = DBOSVersionSource(root=".", config={}).get_version_data()["version"]
+    assert isinstance(version, str)
+    return version

@@ -27,7 +27,8 @@ def _load_credentials() -> dict[str, str] | None:
     if not CREDENTIALS_PATH.exists():
         return None
     try:
-        return json.loads(CREDENTIALS_PATH.read_text())
+        result: dict[str, str] = json.loads(CREDENTIALS_PATH.read_text())
+        return result
     except (json.JSONDecodeError, IOError):
         return None
 
@@ -146,7 +147,8 @@ async def list_applications() -> list[dict[str, Any]]:
             timeout=30.0,
         )
         response.raise_for_status()
-        return response.json()
+        result: list[dict[str, Any]] = response.json()
+        return result
 
 
 async def list_workflows(
@@ -219,7 +221,8 @@ async def list_workflows(
             timeout=30.0,
         )
         response.raise_for_status()
-        return response.json()
+        result: list[dict[str, Any]] = response.json()
+        return result
 
 
 async def get_workflow(
@@ -238,7 +241,8 @@ async def get_workflow(
             timeout=30.0,
         )
         response.raise_for_status()
-        return response.json()
+        result: dict[str, Any] = response.json()
+        return result
 
 
 async def list_steps(
@@ -257,7 +261,8 @@ async def list_steps(
             timeout=30.0,
         )
         response.raise_for_status()
-        return response.json()
+        result: list[dict[str, Any]] = response.json()
+        return result
 
 
 async def list_executors(
@@ -275,7 +280,8 @@ async def list_executors(
             timeout=30.0,
         )
         response.raise_for_status()
-        return response.json()
+        result: list[dict[str, Any]] = response.json()
+        return result
 
 
 async def cancel_workflow(
@@ -340,4 +346,5 @@ async def fork_workflow(
             timeout=30.0,
         )
         response.raise_for_status()
-        return response.json()
+        result: dict[str, Any] = response.json()
+        return result
