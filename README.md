@@ -20,7 +20,7 @@ Credentials are stored in `~/.dbos-mcp/credentials`.
 ## Tools
 
 #### Authentication
-- `login` - Start login flow (returns URL to visit)
+- `login` - Start login flow (returns URL to login page)
 - `login_complete` - Complete login after authenticating
 
 #### Application Introspection
