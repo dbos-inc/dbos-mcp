@@ -4,6 +4,8 @@ This repository contains a Model Context Protocol (MCP) server with tools that c
 It enables LLMs to retrieve information on your applications' workflows and steps, for example to help you debug issues in development or production.
 To use this server, your application should be connected to [Conductor](https://docs.dbos.dev/production/conductor).
 
+You may want to use this alongside a DBOS prompt ([Python](https://docs.dbos.dev/python/prompting), [TypeScript](https://docs.dbos.dev/typescript/prompting), [Go](https://docs.dbos.dev/golang/prompting), [Java](https://docs.dbos.dev/java/prompting)) so your model has the most up-to-date information on DBOS.
+
 ## Setup With Claude Code
 
 First, install this MCP server:
