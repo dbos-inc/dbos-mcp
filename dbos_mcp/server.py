@@ -372,7 +372,7 @@ async def fork_workflow(
     }
 
 
-def main():
+def main() -> None:
     mcp.run()
 
 
