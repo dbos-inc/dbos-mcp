@@ -313,6 +313,7 @@ async def resume_workflow(
 
     Resumes execution of a workflow that is in CANCELLED state.
     You can also use this on a workflow in the ENQUEUED state to immediately start it, bypassing its queue.
+    You cannot resume a workflow in any other state.
 
     Args:
         application_name (string, required): Name of the DBOS application
