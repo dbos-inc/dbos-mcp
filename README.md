@@ -18,7 +18,7 @@ If you already have an older version of `uv` installed, you might need to update
 
 ### Setup with Claude Code
 
-To use this MCP server with Claude code, first add it:
+To use this MCP server with Claude Code, first install it:
 
 ```bash
 claude mcp add dbos-conductor -- uvx dbos-mcp
