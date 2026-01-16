@@ -1,4 +1,4 @@
-# dbos-mcp
+# DBOS MCP Server
 
 MCP server for DBOS Conductor.
 
