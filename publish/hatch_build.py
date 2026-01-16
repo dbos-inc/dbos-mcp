@@ -79,10 +79,14 @@ class DBOSVersionSource(VersionSourceInterface):
     def _get_latest_tag(self, repo: Repo) -> str | None:
         """Get the most recent semantic version tag that's an ancestor of HEAD."""
         version_pattern = re.compile(r"^\d+\.\d+\.\d+$")
-        tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime, reverse=True)
+        tags = sorted(
+            repo.tags, key=lambda t: t.commit.committed_datetime, reverse=True
+        )
 
         for tag in tags:
-            if version_pattern.match(tag.name) and repo.is_ancestor(tag.commit, repo.head.commit):
+            if version_pattern.match(tag.name) and repo.is_ancestor(
+                tag.commit, repo.head.commit
+            ):
                 return tag.name
 
         return None
