@@ -254,3 +254,21 @@ async def list_steps(
         )
         response.raise_for_status()
         return response.json()
+
+
+async def list_executors(
+    application_name: str,
+) -> list[dict[str, Any]]:
+    """List executors for an application."""
+    creds = _get_credentials()
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/executors",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        return response.json()

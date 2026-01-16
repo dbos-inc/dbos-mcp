@@ -243,6 +243,39 @@ async def list_steps(
     }
 
 
+@mcp.tool()
+async def list_executors(
+    application_name: str,
+) -> dict[str, Any]:
+    """List executors for an application from DBOS Conductor.
+
+    Executors are running instances of your application connected to Conductor.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+
+    Returns:
+        executors: Array of executor objects, each containing:
+            - executor_id (string): Unique identifier for this executor
+            - application_id (string): The application ID
+            - application_version (string): Version of the application running on this executor
+            - status (string): HEALTHY, DISCONNECTED, or DEAD
+            - hostname (string, optional): Hostname of the executor
+            - created_at (string): When the executor connected (Unix epoch milliseconds)
+            - updated_at (string): Last heartbeat time (Unix epoch milliseconds)
+            - language (string, optional): Programming language (e.g., "python", "typescript")
+            - dbos_version (string, optional): Version of the DBOS library
+        count (int): Number of executors returned
+        application (string): Name of the application queried
+    """
+    executors = await client.list_executors(application_name=application_name)
+    return {
+        "executors": executors,
+        "count": len(executors),
+        "application": application_name,
+    }
+
+
 def main():
     mcp.run()
 
