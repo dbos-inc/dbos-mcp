@@ -30,8 +30,9 @@ Repository = "https://github.com/dbos-inc/dbos-mcp"
 [dependency-groups]
 dev = [
     "black>=25.12.0",
-    "isort>=7.0.0",
     "gitpython>=3.1.0",
+    "hatch>=1.0.0",
+    "isort>=7.0.0",
 ]
 
 [build-system]
