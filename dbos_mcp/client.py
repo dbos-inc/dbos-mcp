@@ -62,11 +62,15 @@ async def login() -> dict[str, str]:
 
         # Save pending login info
         CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
-        PENDING_LOGIN_PATH.write_text(json.dumps({
-            "device_code": device_data["device_code"],
-            "interval": device_data.get("interval", 5),
-            "expires_at": time.time() + device_data.get("expires_in", 900),
-        }))
+        PENDING_LOGIN_PATH.write_text(
+            json.dumps(
+                {
+                    "device_code": device_data["device_code"],
+                    "interval": device_data.get("interval", 5),
+                    "expires_at": time.time() + device_data.get("expires_in", 900),
+                }
+            )
+        )
 
         return {
             "url": device_data["verification_uri_complete"],

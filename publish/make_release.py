@@ -29,10 +29,14 @@ def make_release(version_number: str | None = None) -> None:
 
     # Validate repository state
     if repo.is_dirty():
-        raise Exception("Local git repository is not clean. Commit or stash changes first.")
+        raise Exception(
+            "Local git repository is not clean. Commit or stash changes first."
+        )
 
     if repo.active_branch.name != "main":
-        raise Exception(f"Can only make a release from main (currently on {repo.active_branch.name})")
+        raise Exception(
+            f"Can only make a release from main (currently on {repo.active_branch.name})"
+        )
 
     # Check if local is up-to-date with remote
     repo.remotes.origin.fetch()
@@ -73,7 +77,9 @@ def make_release(version_number: str | None = None) -> None:
     print(f"\nRelease {version_number} created successfully!")
     print("\nNext steps:")
     print(f"  1. Go to GitHub Actions")
-    print(f"  2. Run 'Publish to PyPI' workflow from the release/v{version_number} branch")
+    print(
+        f"  2. Run 'Publish to PyPI' workflow from the release/v{version_number} branch"
+    )
 
 
 def guess_next_version(repo: Repo) -> str:
