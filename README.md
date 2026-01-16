@@ -1,34 +1,40 @@
 # DBOS MCP Server
 
-MCP server for DBOS Conductor.
+This repository contains a Model Context Protocol (MCP) server with tools that can analyze and manage your DBOS workflows.
+It enables LLMs to retrieve information on your applications' workflows and steps, for example to help you debug issues in development or production.
+To use this server, your application should be connected to [Conductor](https://docs.dbos.dev/production/conductor).
 
-## Setup
+You may want to use this alongside a DBOS prompt ([Python](https://docs.dbos.dev/python/prompting), [TypeScript](https://docs.dbos.dev/typescript/prompting), [Go](https://docs.dbos.dev/golang/prompting), [Java](https://docs.dbos.dev/java/prompting)) so your model has the most up-to-date information on DBOS.
+
+## Setup With Claude Code
+
+First, install this MCP server:
 
 ```bash
-uv sync
+claude mcp add dbos-conductor -- uvx dbos-mcp
 ```
 
-## Use With Claude Code
+Then start Claude Code and ask it questions about your DBOS apps!
+Claude will prompt you to log in by clicking the URL it offers and authenticating in the browser.
 
-```bash
-claude mcp add dbos-conductor -- uv run --directory /path/to/dbos-mcp dbos-mcp
-```
-
-Then start up Claude Code and ask it questions about your DBOS apps!
-For example, ask it to list your applications.
-Claude will prompt you to log in, which you can do by clicking the URL it offers and authenticating in the browser.
+Credentials are stored in `~/.dbos-mcp/credentials`.
 
 ## Tools
 
-- `login` - Start login flow (returns URL to visit)
-- `login_complete` - Complete login after authenticating
+#### Application Introspection
 - `list_applications` - List all applications
+- `list_executors` - List connected executors for an application
+
+#### Workflow Introspection
 - `list_workflows` - List/filter workflows
 - `get_workflow` - Get workflow details
 - `list_steps` - Get execution steps for a workflow
-- `list_executors` - List connected executors for an application
+
+#### Workflow Management
 - `cancel_workflow` - Cancel a running workflow
 - `resume_workflow` - Resume a pending or failed workflow
 - `fork_workflow` - Fork a workflow from a specific step
 
-Credentials stored in `~/.dbos-mcp/credentials`.
+#### Authentication
+- `login` - Start login flow (returns URL to login page)
+- `login_complete` - Complete login after authenticating
