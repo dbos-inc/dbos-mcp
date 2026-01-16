@@ -19,10 +19,6 @@ Credentials are stored in `~/.dbos-mcp/credentials`.
 
 ## Tools
 
-#### Authentication
-- `login` - Start login flow (returns URL to login page)
-- `login_complete` - Complete login after authenticating
-
 #### Application Introspection
 - `list_applications` - List all applications
 - `list_executors` - List connected executors for an application
@@ -36,3 +32,7 @@ Credentials are stored in `~/.dbos-mcp/credentials`.
 - `cancel_workflow` - Cancel a running workflow
 - `resume_workflow` - Resume a pending or failed workflow
 - `fork_workflow` - Fork a workflow from a specific step
+
+#### Authentication
+- `login` - Start login flow (returns URL to login page)
+- `login_complete` - Complete login after authenticating
