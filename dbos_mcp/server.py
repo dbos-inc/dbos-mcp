@@ -276,6 +276,102 @@ async def list_executors(
     }
 
 
+@mcp.tool()
+async def cancel_workflow(
+    application_name: str,
+    workflow_id: str,
+) -> dict[str, Any]:
+    """Cancel a running workflow.
+
+    Sets the workflow status to CANCELLED. The workflow will stop executing
+    at the next step boundary.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_id (string, required): UUID of the workflow to cancel
+
+    Returns:
+        message (string): Confirmation message
+        workflow_id (string): The cancelled workflow ID
+    """
+    await client.cancel_workflow(
+        application_name=application_name,
+        workflow_id=workflow_id,
+    )
+    return {
+        "message": "Workflow cancelled",
+        "workflow_id": workflow_id,
+    }
+
+
+@mcp.tool()
+async def resume_workflow(
+    application_name: str,
+    workflow_id: str,
+) -> dict[str, Any]:
+    """Resume a pending or failed workflow.
+
+    Resumes execution of a workflow that is in PENDING status or that previously
+    failed with an error.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_id (string, required): UUID of the workflow to resume
+
+    Returns:
+        message (string): Confirmation message
+        workflow_id (string): The resumed workflow ID
+    """
+    await client.resume_workflow(
+        application_name=application_name,
+        workflow_id=workflow_id,
+    )
+    return {
+        "message": "Workflow resumed",
+        "workflow_id": workflow_id,
+    }
+
+
+@mcp.tool()
+async def fork_workflow(
+    application_name: str,
+    workflow_id: str,
+    start_step: int,
+    application_version: str | None = None,
+    new_workflow_id: str | None = None,
+) -> dict[str, Any]:
+    """Fork a workflow from a specific step.
+
+    Creates a new workflow that starts from a specific step of an existing workflow,
+    reusing the recorded outputs of all prior steps. Useful for debugging, testing
+    fixes, or replaying workflows from a specific point.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_id (string, required): UUID of the workflow to fork from
+        start_step (int, required): The step number to start from (use list_steps to find step IDs)
+        application_version (string, optional): Application version for the new workflow (defaults to current version)
+        new_workflow_id (string, optional): Custom UUID for the new workflow (auto-generated if not specified)
+
+    Returns:
+        workflow_id (string): The UUID of the newly created forked workflow
+        forked_from (string): The UUID of the original workflow
+        start_step (int): The step number the fork starts from
+    """
+    result = await client.fork_workflow(
+        application_name=application_name,
+        workflow_id=workflow_id,
+        start_step=start_step,
+        application_version=application_version,
+        new_workflow_id=new_workflow_id,
+    )
+    return {
+        "workflow_id": result.get("workflow_id"),
+        "forked_from": workflow_id,
+        "start_step": start_step,
+    }
+
+
 def main():
     mcp.run()
 

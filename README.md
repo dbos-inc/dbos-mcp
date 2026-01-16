@@ -42,5 +42,8 @@ You: "List my applications"
 - `get_workflow` - Get workflow details
 - `list_steps` - Get execution steps for a workflow
 - `list_executors` - List connected executors for an application
+- `cancel_workflow` - Cancel a running workflow
+- `resume_workflow` - Resume a pending or failed workflow
+- `fork_workflow` - Fork a workflow from a specific step
 
 Credentials stored in `~/.dbos-mcp/credentials`.

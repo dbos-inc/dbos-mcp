@@ -272,3 +272,68 @@ async def list_executors(
         )
         response.raise_for_status()
         return response.json()
+
+
+async def cancel_workflow(
+    application_name: str,
+    workflow_id: str,
+) -> None:
+    """Cancel a workflow."""
+    creds = _get_credentials()
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/{workflow_id}/cancel",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=30.0,
+        )
+        response.raise_for_status()
+
+
+async def resume_workflow(
+    application_name: str,
+    workflow_id: str,
+) -> None:
+    """Resume a workflow."""
+    creds = _get_credentials()
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/{workflow_id}/resume",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=30.0,
+        )
+        response.raise_for_status()
+
+
+async def fork_workflow(
+    application_name: str,
+    workflow_id: str,
+    start_step: int,
+    application_version: str | None = None,
+    new_workflow_id: str | None = None,
+) -> dict[str, Any]:
+    """Fork a workflow from a specific step."""
+    creds = _get_credentials()
+    body: dict[str, Any] = {"start_step": start_step}
+    if application_version is not None:
+        body["application_version"] = application_version
+    if new_workflow_id is not None:
+        body["new_workflow_id"] = new_workflow_id
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/{workflow_id}/fork",
+            json=body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        return response.json()
