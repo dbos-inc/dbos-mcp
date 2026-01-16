@@ -19,16 +19,11 @@ from the release branch to publish the package.
 import os
 import re
 import sys
-from typing import Optional
 
-try:
-    from git import Repo
-except ImportError:
-    print("Error: GitPython is required. Install with: uv add --dev gitpython")
-    sys.exit(1)
+from git import Repo
 
 
-def make_release(version_number: Optional[str] = None) -> None:
+def make_release(version_number: str | None = None) -> None:
     """Create and push a new release."""
     repo = Repo(os.getcwd())
 
