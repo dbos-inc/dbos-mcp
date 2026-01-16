@@ -25,7 +25,7 @@ Credentials are stored in `~/.dbos-mcp/credentials`.
 - `list_applications` - List all applications
 - `list_executors` - List connected executors for an application
 
-#### Workflow Introspectino
+#### Workflow Introspection
 - `list_workflows` - List/filter workflows
 - `get_workflow` - Get workflow details
 - `list_steps` - Get execution steps for a workflow
