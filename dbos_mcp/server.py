@@ -8,7 +8,11 @@ from dbos_mcp import client
 
 mcp = FastMCP(
     name="dbos-conductor",
-    instructions="MCP server for DBOS Conductor workflow introspection and management. Call login first if not authenticated.",
+    instructions="""MCP server for DBOS Conductor workflow introspection and management.
+
+Call login first if not authenticated or if receiving auth-related errors.
+
+IMPORTANT: Workflow operations (list_workflows, get_workflow, etc.) only work for applications with status "AVAILABLE". Use list_applications first to check application status.""",
 )
 
 
