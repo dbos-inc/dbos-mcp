@@ -41,4 +41,4 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "code"
 path = "publish/hatch_build.py"
-expression = "DBOSVersionSource(root='.', config={}).get_version_data()['version']"
+expression = "get_version()"

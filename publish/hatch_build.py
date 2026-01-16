@@ -104,3 +104,8 @@ class DBOSVersionSource(VersionSourceInterface):
 
         minor += 1
         return f"{major}.{minor}.0"
+
+
+def get_version() -> str:
+    """Entry point for hatch version source."""
+    return DBOSVersionSource(root=".", config={}).get_version_data()["version"]
