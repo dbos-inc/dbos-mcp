@@ -81,6 +81,7 @@ async def list_workflows(
     status: str | None = None,
     application_version: str | None = None,
     forked_from: str | None = None,
+    parent_workflow_id: str | None = None,
     queue_name: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
@@ -103,6 +104,7 @@ async def list_workflows(
         status (string, optional): Filter by status - PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
         application_version (string, optional): Filter by application version
         forked_from (string, optional): Filter to workflows forked from this workflow ID
+        parent_workflow_id (string, optional): Filter to child workflows of this parent workflow ID
         queue_name (string, optional): Filter by workflow queue name
         limit (int, optional): Maximum number of workflows to return
         offset (int, optional): Number of workflows to skip (for pagination)
@@ -137,6 +139,8 @@ async def list_workflows(
             - Priority (string, optional): Priority of the workflow on the queue (1-2147483647, lower is higher priority)
             - QueuePartitionKey (string, optional): If this workflow is enqueued on a partitioned queue, its partition key
             - ForkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
+            - ParentWorkflowID (string, optional): If this is a child workflow, the ID of the parent workflow that started it
+            - DequeuedAt (string, optional): When this workflow was dequeued from its queue (Unix epoch milliseconds)
         count (int): Number of workflows returned
         application (string): Name of the application queried
     """
@@ -150,6 +154,7 @@ async def list_workflows(
         status=status,
         application_version=application_version,
         forked_from=forked_from,
+        parent_workflow_id=parent_workflow_id,
         queue_name=queue_name,
         limit=limit,
         offset=offset,
@@ -202,6 +207,8 @@ async def get_workflow(
         Priority (string, optional): Priority of the workflow on the queue (1-2147483647, lower is higher priority)
         QueuePartitionKey (string, optional): If this workflow is enqueued on a partitioned queue, its partition key
         ForkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
+        ParentWorkflowID (string, optional): If this is a child workflow, the ID of the parent workflow that started it
+        DequeuedAt (string, optional): When this workflow was dequeued from its queue (Unix epoch milliseconds)
     """
     return await client.get_workflow(
         application_name=application_name,
@@ -260,6 +267,7 @@ async def list_executors(
             - application_id (string): The application ID
             - application_version (string): Version of the application running on this executor
             - status (string): HEALTHY, DISCONNECTED, or DEAD
+            - host_id (string, optional): Host identifier of the executor
             - hostname (string, optional): Hostname of the executor
             - created_at (string): When the executor connected (Unix epoch milliseconds)
             - updated_at (string): Last heartbeat time (Unix epoch milliseconds)

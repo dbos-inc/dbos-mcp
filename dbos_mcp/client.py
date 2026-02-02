@@ -161,6 +161,7 @@ async def list_workflows(
     status: str | None = None,
     application_version: str | None = None,
     forked_from: str | None = None,
+    parent_workflow_id: str | None = None,
     queue_name: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
@@ -191,6 +192,8 @@ async def list_workflows(
         body["application_version"] = application_version
     if forked_from is not None:
         body["forked_from"] = forked_from
+    if parent_workflow_id is not None:
+        body["parent_workflow_id"] = parent_workflow_id
     if queue_name is not None:
         body["queue_name"] = queue_name
     if limit is not None:
