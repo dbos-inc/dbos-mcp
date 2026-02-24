@@ -74,22 +74,22 @@ async def list_applications() -> dict[str, Any]:
 async def list_workflows(
     application_name: str,
     workflow_uuids: list[str] | None = None,
-    workflow_name: str | None = None,
-    authenticated_user: str | None = None,
+    workflow_name: str | list[str] | None = None,
+    authenticated_user: str | list[str] | None = None,
     start_time: str | None = None,
     end_time: str | None = None,
-    status: str | None = None,
-    application_version: str | None = None,
-    forked_from: str | None = None,
-    parent_workflow_id: str | None = None,
-    queue_name: str | None = None,
+    status: str | list[str] | None = None,
+    application_version: str | list[str] | None = None,
+    forked_from: str | list[str] | None = None,
+    parent_workflow_id: str | list[str] | None = None,
+    queue_name: str | list[str] | None = None,
     limit: int | None = None,
     offset: int | None = None,
     sort_desc: bool | None = None,
-    workflow_id_prefix: str | None = None,
+    workflow_id_prefix: str | list[str] | None = None,
     load_input: bool | None = None,
     load_output: bool | None = None,
-    executor_id: str | None = None,
+    executor_id: str | list[str] | None = None,
     queues_only: bool | None = None,
 ) -> dict[str, Any]:
     """List workflows from DBOS Conductor with optional filters.
@@ -97,22 +97,22 @@ async def list_workflows(
     Args:
         application_name (string, required): Name of the DBOS application
         workflow_uuids (array of strings, optional): Filter to only these specific workflow IDs
-        workflow_name (string, optional): Filter by workflow function name
-        authenticated_user (string, optional): Filter by the user who started the workflow
+        workflow_name (string or array of strings, optional): Filter by workflow function name
+        authenticated_user (string or array of strings, optional): Filter by the user who started the workflow
         start_time (string, optional): Filter workflows created after this time (ISO 8601)
         end_time (string, optional): Filter workflows created before this time (ISO 8601)
-        status (string, optional): Filter by status - PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
-        application_version (string, optional): Filter by application version
-        forked_from (string, optional): Filter to workflows forked from this workflow ID
-        parent_workflow_id (string, optional): Filter to child workflows of this parent workflow ID
-        queue_name (string, optional): Filter by workflow queue name
+        status (string or array of strings, optional): Filter by status - PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
+        application_version (string or array of strings, optional): Filter by application version
+        forked_from (string or array of strings, optional): Filter to workflows forked from this workflow ID
+        parent_workflow_id (string or array of strings, optional): Filter to child workflows of this parent workflow ID
+        queue_name (string or array of strings, optional): Filter by workflow queue name
         limit (int, optional): Maximum number of workflows to return
         offset (int, optional): Number of workflows to skip (for pagination)
         sort_desc (bool, optional): Sort by creation time descending (default: false, ascending)
-        workflow_id_prefix (string, optional): Filter to workflow IDs starting with this prefix
+        workflow_id_prefix (string or array of strings, optional): Filter to workflow IDs starting with this prefix
         load_input (bool, optional): Include workflow input data in response (default: false)
         load_output (bool, optional): Include workflow output data in response (default: false)
-        executor_id (string, optional): Filter by executor ID running the workflow
+        executor_id (string or array of strings, optional): Filter by executor ID running the workflow
         queues_only (bool, optional): Only return workflows that are on a queue (default: false)
 
     Returns:
