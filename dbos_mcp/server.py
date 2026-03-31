@@ -91,6 +91,7 @@ async def list_workflows(
     load_output: bool | None = None,
     executor_id: str | list[str] | None = None,
     queues_only: bool | None = None,
+    was_forked_from: bool | None = None,
 ) -> dict[str, Any]:
     """List workflows from DBOS Conductor with optional filters.
 
@@ -101,7 +102,7 @@ async def list_workflows(
         authenticated_user (string or array of strings, optional): Filter by the user who started the workflow
         start_time (string, optional): Filter workflows created after this time (ISO 8601)
         end_time (string, optional): Filter workflows created before this time (ISO 8601)
-        status (string or array of strings, optional): Filter by status - PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
+        status (string or array of strings, optional): Filter by status - PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, DELAYED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
         application_version (string or array of strings, optional): Filter by application version
         forked_from (string or array of strings, optional): Filter to workflows forked from this workflow ID
         parent_workflow_id (string or array of strings, optional): Filter to child workflows of this parent workflow ID
@@ -114,11 +115,12 @@ async def list_workflows(
         load_output (bool, optional): Include workflow output data in response (default: false)
         executor_id (string or array of strings, optional): Filter by executor ID running the workflow
         queues_only (bool, optional): Only return workflows that are on a queue (default: false)
+        was_forked_from (bool, optional): If true, only return forked workflows. If false, only return non-forked workflows.
 
     Returns:
         workflows: Array of workflow objects, each containing:
             - WorkflowUUID (string): The workflow ID
-            - Status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
+            - Status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, DELAYED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
             - WorkflowName (string): The name of the workflow function
             - WorkflowClassName (string, optional): The name of the workflow's class, if any
             - WorkflowConfigName (string, optional): The name with which the workflow's class instance was configured, if any
@@ -141,6 +143,8 @@ async def list_workflows(
             - ForkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
             - ParentWorkflowID (string, optional): If this is a child workflow, the ID of the parent workflow that started it
             - DequeuedAt (string, optional): When this workflow was dequeued from its queue (Unix epoch milliseconds)
+            - WasForkedFrom (bool): Whether this workflow was forked from another workflow
+            - DelayUntilEpochMS (string, optional): If this workflow has a delayed start, the epoch ms timestamp until which it is delayed
         count (int): Number of workflows returned
         application (string): Name of the application queried
     """
@@ -164,6 +168,7 @@ async def list_workflows(
         load_output=load_output,
         executor_id=executor_id,
         queues_only=queues_only,
+        was_forked_from=was_forked_from,
     )
 
     return {
@@ -186,7 +191,7 @@ async def get_workflow(
 
     Returns:
         WorkflowUUID (string): The workflow ID
-        Status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
+        Status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, DELAYED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
         WorkflowName (string): The name of the workflow function
         WorkflowClassName (string, optional): The name of the workflow's class, if any
         WorkflowConfigName (string, optional): The name with which the workflow's class instance was configured, if any
@@ -209,6 +214,8 @@ async def get_workflow(
         ForkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
         ParentWorkflowID (string, optional): If this is a child workflow, the ID of the parent workflow that started it
         DequeuedAt (string, optional): When this workflow was dequeued from its queue (Unix epoch milliseconds)
+        WasForkedFrom (bool): Whether this workflow was forked from another workflow
+        DelayUntilEpochMS (string, optional): If this workflow has a delayed start, the epoch ms timestamp until which it is delayed
     """
     return await client.get_workflow(
         application_name=application_name,

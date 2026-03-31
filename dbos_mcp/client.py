@@ -171,6 +171,7 @@ async def list_workflows(
     load_output: bool | None = None,
     executor_id: str | list[str] | None = None,
     queues_only: bool | None = None,
+    was_forked_from: bool | None = None,
 ) -> list[dict[str, Any]]:
     """List workflows with optional filters."""
     creds = _get_credentials()
@@ -212,6 +213,8 @@ async def list_workflows(
         body["executor_id"] = executor_id
     if queues_only is not None:
         body["queues_only"] = queues_only
+    if was_forked_from is not None:
+        body["was_forked_from"] = was_forked_from
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
