@@ -91,6 +91,7 @@ async def list_workflows(
     load_output: bool | None = None,
     executor_id: str | list[str] | None = None,
     queues_only: bool | None = None,
+    was_forked_from: bool | None = None,
 ) -> dict[str, Any]:
     """List workflows from DBOS Conductor with optional filters.
 
@@ -101,7 +102,7 @@ async def list_workflows(
         authenticated_user (string or array of strings, optional): Filter by the user who started the workflow
         start_time (string, optional): Filter workflows created after this time (ISO 8601)
         end_time (string, optional): Filter workflows created before this time (ISO 8601)
-        status (string or array of strings, optional): Filter by status - PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
+        status (string or array of strings, optional): Filter by status - PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, DELAYED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
         application_version (string or array of strings, optional): Filter by application version
         forked_from (string or array of strings, optional): Filter to workflows forked from this workflow ID
         parent_workflow_id (string or array of strings, optional): Filter to child workflows of this parent workflow ID
@@ -114,11 +115,12 @@ async def list_workflows(
         load_output (bool, optional): Include workflow output data in response (default: false)
         executor_id (string or array of strings, optional): Filter by executor ID running the workflow
         queues_only (bool, optional): Only return workflows that are on a queue (default: false)
+        was_forked_from (bool, optional): If true, only return forked workflows. If false, only return non-forked workflows.
 
     Returns:
         workflows: Array of workflow objects, each containing:
             - WorkflowUUID (string): The workflow ID
-            - Status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
+            - Status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, DELAYED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
             - WorkflowName (string): The name of the workflow function
             - WorkflowClassName (string, optional): The name of the workflow's class, if any
             - WorkflowConfigName (string, optional): The name with which the workflow's class instance was configured, if any
@@ -141,6 +143,8 @@ async def list_workflows(
             - ForkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
             - ParentWorkflowID (string, optional): If this is a child workflow, the ID of the parent workflow that started it
             - DequeuedAt (string, optional): When this workflow was dequeued from its queue (Unix epoch milliseconds)
+            - WasForkedFrom (bool): Whether this workflow was forked from another workflow
+            - DelayUntilEpochMS (string, optional): If this workflow has a delayed start, the epoch ms timestamp until which it is delayed
         count (int): Number of workflows returned
         application (string): Name of the application queried
     """
@@ -164,6 +168,7 @@ async def list_workflows(
         load_output=load_output,
         executor_id=executor_id,
         queues_only=queues_only,
+        was_forked_from=was_forked_from,
     )
 
     return {
@@ -182,11 +187,11 @@ async def get_workflow(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow to retrieve
+        workflow_id (string, required): ID of the workflow to retrieve
 
     Returns:
         WorkflowUUID (string): The workflow ID
-        Status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
+        Status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, DELAYED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
         WorkflowName (string): The name of the workflow function
         WorkflowClassName (string, optional): The name of the workflow's class, if any
         WorkflowConfigName (string, optional): The name with which the workflow's class instance was configured, if any
@@ -209,6 +214,8 @@ async def get_workflow(
         ForkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
         ParentWorkflowID (string, optional): If this is a child workflow, the ID of the parent workflow that started it
         DequeuedAt (string, optional): When this workflow was dequeued from its queue (Unix epoch milliseconds)
+        WasForkedFrom (bool): Whether this workflow was forked from another workflow
+        DelayUntilEpochMS (string, optional): If this workflow has a delayed start, the epoch ms timestamp until which it is delayed
     """
     return await client.get_workflow(
         application_name=application_name,
@@ -225,7 +232,7 @@ async def list_steps(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow
+        workflow_id (string, required): ID of the workflow
 
     Returns:
         steps: Array of step objects, each containing:
@@ -296,7 +303,7 @@ async def cancel_workflow(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow to cancel
+        workflow_id (string, required): ID of the workflow to cancel
 
     Returns:
         message (string): Confirmation message
@@ -325,7 +332,7 @@ async def resume_workflow(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow to resume
+        workflow_id (string, required): ID of the workflow to resume
 
     Returns:
         message (string): Confirmation message
@@ -357,14 +364,14 @@ async def fork_workflow(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow to fork from
+        workflow_id (string, required): ID of the workflow to fork from
         start_step (int, required): The step number to start from (use list_steps to find step IDs)
         application_version (string, optional): Application version for the new workflow (defaults to current version)
-        new_workflow_id (string, optional): Custom UUID for the new workflow (auto-generated if not specified)
+        new_workflow_id (string, optional): Custom ID for the new workflow (auto-generated if not specified)
 
     Returns:
-        workflow_id (string): The UUID of the newly created forked workflow
-        forked_from (string): The UUID of the original workflow
+        workflow_id (string): The ID of the newly created forked workflow
+        forked_from (string): The ID of the original workflow
         start_step (int): The step number the fork starts from
     """
     result = await client.fork_workflow(
@@ -378,6 +385,526 @@ async def fork_workflow(
         "workflow_id": result.get("workflow_id"),
         "forked_from": workflow_id,
         "start_step": start_step,
+    }
+
+
+@mcp.tool()
+async def bulk_cancel_workflows(
+    application_name: str,
+    workflow_ids: list[str],
+) -> dict[str, Any]:
+    """Cancel multiple workflows at once.
+
+    Sets each workflow's status to CANCELLED. Each workflow will stop executing
+    at its next step boundary.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_ids (array of strings, required): IDs of the workflows to cancel
+
+    Returns:
+        message (string): Confirmation message
+        count (int): Number of workflows cancelled
+    """
+    await client.bulk_cancel_workflows(
+        application_name=application_name,
+        workflow_ids=workflow_ids,
+    )
+    return {
+        "message": f"Cancelled {len(workflow_ids)} workflows",
+        "count": len(workflow_ids),
+    }
+
+
+@mcp.tool()
+async def bulk_resume_workflows(
+    application_name: str,
+    workflow_ids: list[str],
+    queue_name: str | None = None,
+) -> dict[str, Any]:
+    """Resume multiple workflows at once.
+
+    Resumes execution of workflows that are in CANCELLED state.
+    You can also use this on workflows in ENQUEUED state to immediately start them, bypassing their queue.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_ids (array of strings, required): IDs of the workflows to resume
+        queue_name (string, optional): If provided, enqueue the resumed workflows onto this queue instead of running them immediately
+
+    Returns:
+        message (string): Confirmation message
+        count (int): Number of workflows resumed
+    """
+    await client.bulk_resume_workflows(
+        application_name=application_name,
+        workflow_ids=workflow_ids,
+        queue_name=queue_name,
+    )
+    return {
+        "message": f"Resumed {len(workflow_ids)} workflows",
+        "count": len(workflow_ids),
+    }
+
+
+@mcp.tool()
+async def bulk_delete_workflows(
+    application_name: str,
+    workflow_ids: list[str],
+    delete_children: bool = False,
+) -> dict[str, Any]:
+    """Delete multiple workflows at once.
+
+    Permanently deletes the workflows and their execution history.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_ids (array of strings, required): IDs of the workflows to delete
+        delete_children (bool, optional): Also delete child workflows started by these workflows (default: false)
+
+    Returns:
+        message (string): Confirmation message
+        count (int): Number of workflows deleted
+    """
+    await client.bulk_delete_workflows(
+        application_name=application_name,
+        workflow_ids=workflow_ids,
+        delete_children=delete_children,
+    )
+    return {
+        "message": f"Deleted {len(workflow_ids)} workflows",
+        "count": len(workflow_ids),
+    }
+
+
+@mcp.tool()
+async def fork_from_failure(
+    application_name: str,
+    workflow_ids: list[str],
+    application_version: str | None = None,
+    queue_name: str | None = None,
+    queue_partition_key: str | None = None,
+    from_last_failure: bool = False,
+    from_last_step: bool = False,
+    from_step: int | None = None,
+    from_step_name: str | None = None,
+) -> dict[str, Any]:
+    """Fork multiple failed workflows from a specific point.
+
+    Creates new workflows that re-execute from a chosen point, reusing the
+    recorded outputs of all prior steps. Useful for retrying a batch of failed
+    workflows after deploying a fix.
+
+    IMPORTANT: You must set exactly one of from_last_failure, from_last_step, from_step, or from_step_name.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_ids (array of strings, required): IDs of the workflows to fork
+        application_version (string, optional): Application version for the new workflows (defaults to current version)
+        queue_name (string, optional): Enqueue the forked workflows onto this queue
+        queue_partition_key (string, optional): Partition key for the queue
+        from_last_failure (bool, optional): Fork from the last failed step (default: false)
+        from_last_step (bool, optional): Fork from the last executed step (default: false)
+        from_step (int, optional): Fork from this specific step number
+        from_step_name (string, optional): Fork from the step with this function name
+
+    Returns:
+        workflow_ids (array of strings): IDs of the newly created forked workflows
+        count (int): Number of workflows forked
+    """
+    new_ids = await client.fork_from_failure(
+        application_name=application_name,
+        workflow_ids=workflow_ids,
+        application_version=application_version,
+        queue_name=queue_name,
+        queue_partition_key=queue_partition_key,
+        from_last_failure=from_last_failure,
+        from_last_step=from_last_step,
+        from_step=from_step,
+        from_step_name=from_step_name,
+    )
+    return {
+        "workflow_ids": new_ids,
+        "count": len(new_ids),
+    }
+
+
+@mcp.tool()
+async def delete_workflow(
+    application_name: str,
+    workflow_id: str,
+    delete_children: bool = False,
+) -> dict[str, Any]:
+    """Delete a workflow from DBOS Conductor.
+
+    Permanently deletes a workflow and its execution history.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_id (string, required): ID of the workflow to delete
+        delete_children (bool, optional): Also delete child workflows started by this workflow (default: false)
+
+    Returns:
+        message (string): Confirmation message
+        workflow_id (string): The deleted workflow ID
+    """
+    await client.delete_workflow(
+        application_name=application_name,
+        workflow_id=workflow_id,
+        delete_children=delete_children,
+    )
+    return {
+        "message": "Workflow deleted",
+        "workflow_id": workflow_id,
+    }
+
+
+@mcp.tool()
+async def get_workflow_aggregates(
+    application_name: str,
+    group_by_status: bool = False,
+    group_by_name: bool = False,
+    group_by_queue_name: bool = False,
+    group_by_executor_id: bool = False,
+    group_by_application_version: bool = False,
+    status: list[str] | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
+    name: list[str] | None = None,
+    app_version: list[str] | None = None,
+    executor_id: list[str] | None = None,
+    queue_name: list[str] | None = None,
+    workflow_id_prefix: list[str] | None = None,
+) -> dict[str, Any]:
+    """Get workflow aggregate counts from DBOS Conductor.
+
+    Returns workflow counts grouped by one or more dimensions. Useful for
+    dashboards and understanding workflow status at a glance (e.g., "how many
+    workflows failed today?" or "how many workflows are pending per queue?").
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        group_by_status (bool, optional): Group results by workflow status (default: false)
+        group_by_name (bool, optional): Group results by workflow name (default: false)
+        group_by_queue_name (bool, optional): Group results by queue name (default: false)
+        group_by_executor_id (bool, optional): Group results by executor ID (default: false)
+        group_by_application_version (bool, optional): Group results by application version (default: false)
+        status (array of strings, optional): Filter to these statuses before aggregating
+        start_time (string, optional): Filter workflows created after this time (ISO 8601)
+        end_time (string, optional): Filter workflows created before this time (ISO 8601)
+        name (array of strings, optional): Filter to these workflow names before aggregating
+        app_version (array of strings, optional): Filter to these application versions
+        executor_id (array of strings, optional): Filter to these executor IDs
+        queue_name (array of strings, optional): Filter to these queue names
+        workflow_id_prefix (array of strings, optional): Filter to workflow IDs starting with these prefixes
+
+    Returns:
+        aggregates: Array of aggregate objects, each containing:
+            - group (object): Map of dimension names to values (e.g., {"status": "ERROR", "workflow_name": "processOrder"})
+            - count (int): Number of workflows matching this group
+        application (string): Name of the application queried
+    """
+    aggregates = await client.get_workflow_aggregates(
+        application_name=application_name,
+        group_by_status=group_by_status,
+        group_by_name=group_by_name,
+        group_by_queue_name=group_by_queue_name,
+        group_by_executor_id=group_by_executor_id,
+        group_by_application_version=group_by_application_version,
+        status=status,
+        start_time=start_time,
+        end_time=end_time,
+        name=name,
+        app_version=app_version,
+        executor_id=executor_id,
+        queue_name=queue_name,
+        workflow_id_prefix=workflow_id_prefix,
+    )
+    return {
+        "aggregates": aggregates,
+        "application": application_name,
+    }
+
+
+@mcp.tool()
+async def get_workflow_events(
+    application_name: str,
+    workflow_id: str,
+) -> dict[str, Any]:
+    """Get events received by a workflow from DBOS Conductor.
+
+    Events are key-value signals sent between workflows using the events API.
+    Each event has a string key and a JSON-serialized value.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_id (string, required): ID of the workflow
+
+    Returns:
+        events: Array of event objects, each containing:
+            - key (string): The event key
+            - value (string): The event value (JSON string)
+        count (int): Number of events returned
+        workflow_id (string): The workflow ID queried
+    """
+    events = await client.get_workflow_events(
+        application_name=application_name,
+        workflow_id=workflow_id,
+    )
+    return {
+        "events": events,
+        "count": len(events),
+        "workflow_id": workflow_id,
+    }
+
+
+@mcp.tool()
+async def get_workflow_notifications(
+    application_name: str,
+    workflow_id: str,
+) -> dict[str, Any]:
+    """Get notifications received by a workflow from DBOS Conductor.
+
+    Notifications are messages sent to a workflow on a specific topic.
+    Unlike events, multiple notifications can be sent on the same topic.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_id (string, required): ID of the workflow
+
+    Returns:
+        notifications: Array of notification objects, each containing:
+            - topic (string, optional): The notification topic
+            - message (string): The notification message (JSON string)
+            - created_at_epoch_ms (int): When the notification was sent (Unix epoch milliseconds)
+            - consumed (bool): Whether the notification has been consumed by the workflow
+        count (int): Number of notifications returned
+        workflow_id (string): The workflow ID queried
+    """
+    notifications = await client.get_workflow_notifications(
+        application_name=application_name,
+        workflow_id=workflow_id,
+    )
+    return {
+        "notifications": notifications,
+        "count": len(notifications),
+        "workflow_id": workflow_id,
+    }
+
+
+@mcp.tool()
+async def list_schedules(
+    application_name: str,
+    status: str | list[str] | None = None,
+    workflow_name: str | list[str] | None = None,
+    schedule_name_prefix: str | list[str] | None = None,
+    load_context: bool | None = None,
+) -> dict[str, Any]:
+    """List schedules for an application from DBOS Conductor.
+
+    Schedules automatically trigger workflows on a cron-based schedule.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        status (string or array of strings, optional): Filter by schedule status (e.g., "ACTIVE", "PAUSED")
+        workflow_name (string or array of strings, optional): Filter by the workflow function the schedule triggers
+        schedule_name_prefix (string or array of strings, optional): Filter by schedule name prefix
+        load_context (bool, optional): Include the schedule context in the response (default: false)
+
+    Returns:
+        schedules: Array of schedule objects, each containing:
+            - schedule_id (string): Unique identifier
+            - schedule_name (string): Name of the schedule
+            - workflow_name (string): The workflow function this schedule triggers
+            - workflow_class_name (string, optional): The workflow's class name, if any
+            - schedule (string): Cron expression defining the schedule
+            - status (string): "ACTIVE" or "PAUSED"
+            - context (string, optional): Schedule context (JSON string, only if load_context=true)
+            - last_fired_at (string, optional): When the schedule last triggered (ISO 8601)
+            - automatic_backfill (bool): Whether missed runs are automatically backfilled
+            - cron_timezone (string, optional): Timezone for the cron expression
+        count (int): Number of schedules returned
+        application (string): Name of the application queried
+    """
+    schedules = await client.list_schedules(
+        application_name=application_name,
+        status=status,
+        workflow_name=workflow_name,
+        schedule_name_prefix=schedule_name_prefix,
+        load_context=load_context,
+    )
+    return {
+        "schedules": schedules,
+        "count": len(schedules),
+        "application": application_name,
+    }
+
+
+@mcp.tool()
+async def get_schedule(
+    application_name: str,
+    schedule_name: str,
+) -> dict[str, Any]:
+    """Get details of a specific schedule from DBOS Conductor.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        schedule_name (string, required): Name of the schedule
+
+    Returns:
+        schedule_id (string): Unique identifier
+        schedule_name (string): Name of the schedule
+        workflow_name (string): The workflow function this schedule triggers
+        workflow_class_name (string, optional): The workflow's class name, if any
+        schedule (string): Cron expression defining the schedule
+        status (string): "ACTIVE" or "PAUSED"
+        context (string, optional): Schedule context (JSON string)
+        last_fired_at (string, optional): When the schedule last triggered (ISO 8601)
+        automatic_backfill (bool): Whether missed runs are automatically backfilled
+        cron_timezone (string, optional): Timezone for the cron expression
+    """
+    return await client.get_schedule(
+        application_name=application_name,
+        schedule_name=schedule_name,
+    )
+
+
+@mcp.tool()
+async def pause_schedule(
+    application_name: str,
+    schedule_name: str,
+) -> dict[str, Any]:
+    """Pause a schedule, stopping it from triggering new workflows.
+
+    The schedule can be resumed later with resume_schedule.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        schedule_name (string, required): Name of the schedule to pause
+
+    Returns:
+        message (string): Confirmation message
+        schedule_name (string): The paused schedule name
+    """
+    await client.pause_schedule(
+        application_name=application_name,
+        schedule_name=schedule_name,
+    )
+    return {
+        "message": "Schedule paused",
+        "schedule_name": schedule_name,
+    }
+
+
+@mcp.tool()
+async def resume_schedule(
+    application_name: str,
+    schedule_name: str,
+) -> dict[str, Any]:
+    """Resume a paused schedule, allowing it to trigger workflows again.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        schedule_name (string, required): Name of the schedule to resume
+
+    Returns:
+        message (string): Confirmation message
+        schedule_name (string): The resumed schedule name
+    """
+    await client.resume_schedule(
+        application_name=application_name,
+        schedule_name=schedule_name,
+    )
+    return {
+        "message": "Schedule resumed",
+        "schedule_name": schedule_name,
+    }
+
+
+@mcp.tool()
+async def trigger_schedule(
+    application_name: str,
+    schedule_name: str,
+) -> dict[str, Any]:
+    """Manually trigger a schedule to run its workflow immediately.
+
+    This does not affect the schedule's regular cron timing.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        schedule_name (string, required): Name of the schedule to trigger
+
+    Returns:
+        workflow_id (string, optional): The ID of the triggered workflow, if one was created
+        schedule_name (string): The triggered schedule name
+    """
+    result = await client.trigger_schedule(
+        application_name=application_name,
+        schedule_name=schedule_name,
+    )
+    return {
+        "workflow_id": result.get("workflow_id"),
+        "schedule_name": schedule_name,
+    }
+
+
+@mcp.tool()
+async def list_application_versions(
+    application_name: str,
+) -> dict[str, Any]:
+    """List all versions of an application from DBOS Conductor.
+
+    Each time an application connects with a new version string, a new version
+    is recorded. Use set_latest_application_version to control which version
+    is considered current.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+
+    Returns:
+        versions: Array of version objects, each containing:
+            - version_id (string): Unique identifier for this version
+            - version_name (string): The version string
+            - version_timestamp (int): Version timestamp (Unix epoch milliseconds)
+            - created_at (int): When this version was first seen (Unix epoch milliseconds)
+        count (int): Number of versions returned
+        application (string): Name of the application queried
+    """
+    versions = await client.list_application_versions(
+        application_name=application_name,
+    )
+    return {
+        "versions": versions,
+        "count": len(versions),
+        "application": application_name,
+    }
+
+
+@mcp.tool()
+async def set_latest_application_version(
+    application_name: str,
+    version_name: str,
+) -> dict[str, Any]:
+    """Set the latest version for an application in DBOS Conductor.
+
+    This controls which version is considered current. Useful for rolling
+    back to a previous version or promoting a specific version.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        version_name (string, required): The version string to set as latest
+
+    Returns:
+        message (string): Confirmation message
+        version_name (string): The version that was set as latest
+    """
+    await client.set_latest_application_version(
+        application_name=application_name,
+        version_name=version_name,
+    )
+    return {
+        "message": f"Latest version set to {version_name}",
+        "version_name": version_name,
     }
 
 
