@@ -182,7 +182,7 @@ async def get_workflow(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow to retrieve
+        workflow_id (string, required): ID of the workflow to retrieve
 
     Returns:
         WorkflowUUID (string): The workflow ID
@@ -225,7 +225,7 @@ async def list_steps(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow
+        workflow_id (string, required): ID of the workflow
 
     Returns:
         steps: Array of step objects, each containing:
@@ -296,7 +296,7 @@ async def cancel_workflow(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow to cancel
+        workflow_id (string, required): ID of the workflow to cancel
 
     Returns:
         message (string): Confirmation message
@@ -325,7 +325,7 @@ async def resume_workflow(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow to resume
+        workflow_id (string, required): ID of the workflow to resume
 
     Returns:
         message (string): Confirmation message
@@ -357,14 +357,14 @@ async def fork_workflow(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow to fork from
+        workflow_id (string, required): ID of the workflow to fork from
         start_step (int, required): The step number to start from (use list_steps to find step IDs)
         application_version (string, optional): Application version for the new workflow (defaults to current version)
-        new_workflow_id (string, optional): Custom UUID for the new workflow (auto-generated if not specified)
+        new_workflow_id (string, optional): Custom ID for the new workflow (auto-generated if not specified)
 
     Returns:
-        workflow_id (string): The UUID of the newly created forked workflow
-        forked_from (string): The UUID of the original workflow
+        workflow_id (string): The ID of the newly created forked workflow
+        forked_from (string): The ID of the original workflow
         start_step (int): The step number the fork starts from
     """
     result = await client.fork_workflow(
@@ -393,7 +393,7 @@ async def bulk_cancel_workflows(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_ids (array of strings, required): UUIDs of the workflows to cancel
+        workflow_ids (array of strings, required): IDs of the workflows to cancel
 
     Returns:
         message (string): Confirmation message
@@ -422,7 +422,7 @@ async def bulk_resume_workflows(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_ids (array of strings, required): UUIDs of the workflows to resume
+        workflow_ids (array of strings, required): IDs of the workflows to resume
         queue_name (string, optional): If provided, enqueue the resumed workflows onto this queue instead of running them immediately
 
     Returns:
@@ -452,7 +452,7 @@ async def bulk_delete_workflows(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_ids (array of strings, required): UUIDs of the workflows to delete
+        workflow_ids (array of strings, required): IDs of the workflows to delete
         delete_children (bool, optional): Also delete child workflows started by these workflows (default: false)
 
     Returns:
@@ -492,7 +492,7 @@ async def fork_from_failure(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_ids (array of strings, required): UUIDs of the workflows to fork
+        workflow_ids (array of strings, required): IDs of the workflows to fork
         application_version (string, optional): Application version for the new workflows (defaults to current version)
         queue_name (string, optional): Enqueue the forked workflows onto this queue
         queue_partition_key (string, optional): Partition key for the queue
@@ -502,7 +502,7 @@ async def fork_from_failure(
         from_step_name (string, optional): Fork from the step with this function name
 
     Returns:
-        workflow_ids (array of strings): UUIDs of the newly created forked workflows
+        workflow_ids (array of strings): IDs of the newly created forked workflows
         count (int): Number of workflows forked
     """
     new_ids = await client.fork_from_failure(
@@ -534,7 +534,7 @@ async def delete_workflow(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow to delete
+        workflow_id (string, required): ID of the workflow to delete
         delete_children (bool, optional): Also delete child workflows started by this workflow (default: false)
 
     Returns:
@@ -631,7 +631,7 @@ async def get_workflow_events(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow
+        workflow_id (string, required): ID of the workflow
 
     Returns:
         events: Array of event objects, each containing:
@@ -663,7 +663,7 @@ async def get_workflow_notifications(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        workflow_id (string, required): UUID of the workflow
+        workflow_id (string, required): ID of the workflow
 
     Returns:
         notifications: Array of notification objects, each containing:
@@ -828,7 +828,7 @@ async def trigger_schedule(
         schedule_name (string, required): Name of the schedule to trigger
 
     Returns:
-        workflow_id (string, optional): The UUID of the triggered workflow, if one was created
+        workflow_id (string, optional): The ID of the triggered workflow, if one was created
         schedule_name (string): The triggered schedule name
     """
     result = await client.trigger_schedule(
