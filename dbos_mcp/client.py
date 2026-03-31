@@ -353,6 +353,118 @@ async def fork_workflow(
         return result
 
 
+async def bulk_cancel_workflows(
+    application_name: str,
+    workflow_ids: list[str],
+) -> None:
+    """Cancel multiple workflows."""
+    creds = _get_credentials()
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/cancel",
+            json={"workflow_ids": workflow_ids},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=30.0,
+        )
+        response.raise_for_status()
+
+
+async def bulk_resume_workflows(
+    application_name: str,
+    workflow_ids: list[str],
+    queue_name: str | None = None,
+) -> None:
+    """Resume multiple workflows."""
+    creds = _get_credentials()
+    body: dict[str, Any] = {"workflow_ids": workflow_ids}
+    if queue_name is not None:
+        body["queue_name"] = queue_name
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/resume",
+            json=body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=30.0,
+        )
+        response.raise_for_status()
+
+
+async def bulk_delete_workflows(
+    application_name: str,
+    workflow_ids: list[str],
+    delete_children: bool = False,
+) -> None:
+    """Delete multiple workflows."""
+    creds = _get_credentials()
+    body: dict[str, Any] = {"workflow_ids": workflow_ids}
+    if delete_children:
+        body["delete_children"] = True
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/delete",
+            json=body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=30.0,
+        )
+        response.raise_for_status()
+
+
+async def fork_from_failure(
+    application_name: str,
+    workflow_ids: list[str],
+    application_version: str | None = None,
+    queue_name: str | None = None,
+    queue_partition_key: str | None = None,
+    from_last_failure: bool = False,
+    from_last_step: bool = False,
+    from_step: int | None = None,
+    from_step_name: str | None = None,
+) -> list[str]:
+    """Fork multiple workflows from their failure point."""
+    creds = _get_credentials()
+    body: dict[str, Any] = {"workflow_ids": workflow_ids}
+    if application_version is not None:
+        body["application_version"] = application_version
+    if queue_name is not None:
+        body["queue_name"] = queue_name
+    if queue_partition_key is not None:
+        body["queue_partition_key"] = queue_partition_key
+    if from_last_failure:
+        body["from_last_failure"] = True
+    if from_last_step:
+        body["from_last_step"] = True
+    if from_step is not None:
+        body["from_step"] = from_step
+    if from_step_name is not None:
+        body["from_step_name"] = from_step_name
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/fork-from-failure",
+            json=body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=30.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        result: list[str] = data.get("workflow_ids", [])
+        return result
+
+
 async def delete_workflow(
     application_name: str,
     workflow_id: str,

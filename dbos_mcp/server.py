@@ -382,6 +382,147 @@ async def fork_workflow(
 
 
 @mcp.tool()
+async def bulk_cancel_workflows(
+    application_name: str,
+    workflow_ids: list[str],
+) -> dict[str, Any]:
+    """Cancel multiple workflows at once.
+
+    Sets each workflow's status to CANCELLED. Each workflow will stop executing
+    at its next step boundary.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_ids (array of strings, required): UUIDs of the workflows to cancel
+
+    Returns:
+        message (string): Confirmation message
+        count (int): Number of workflows cancelled
+    """
+    await client.bulk_cancel_workflows(
+        application_name=application_name,
+        workflow_ids=workflow_ids,
+    )
+    return {
+        "message": f"Cancelled {len(workflow_ids)} workflows",
+        "count": len(workflow_ids),
+    }
+
+
+@mcp.tool()
+async def bulk_resume_workflows(
+    application_name: str,
+    workflow_ids: list[str],
+    queue_name: str | None = None,
+) -> dict[str, Any]:
+    """Resume multiple workflows at once.
+
+    Resumes execution of workflows that are in CANCELLED state.
+    You can also use this on workflows in ENQUEUED state to immediately start them, bypassing their queue.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_ids (array of strings, required): UUIDs of the workflows to resume
+        queue_name (string, optional): If provided, enqueue the resumed workflows onto this queue instead of running them immediately
+
+    Returns:
+        message (string): Confirmation message
+        count (int): Number of workflows resumed
+    """
+    await client.bulk_resume_workflows(
+        application_name=application_name,
+        workflow_ids=workflow_ids,
+        queue_name=queue_name,
+    )
+    return {
+        "message": f"Resumed {len(workflow_ids)} workflows",
+        "count": len(workflow_ids),
+    }
+
+
+@mcp.tool()
+async def bulk_delete_workflows(
+    application_name: str,
+    workflow_ids: list[str],
+    delete_children: bool = False,
+) -> dict[str, Any]:
+    """Delete multiple workflows at once.
+
+    Permanently deletes the workflows and their execution history.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_ids (array of strings, required): UUIDs of the workflows to delete
+        delete_children (bool, optional): Also delete child workflows started by these workflows (default: false)
+
+    Returns:
+        message (string): Confirmation message
+        count (int): Number of workflows deleted
+    """
+    await client.bulk_delete_workflows(
+        application_name=application_name,
+        workflow_ids=workflow_ids,
+        delete_children=delete_children,
+    )
+    return {
+        "message": f"Deleted {len(workflow_ids)} workflows",
+        "count": len(workflow_ids),
+    }
+
+
+@mcp.tool()
+async def fork_from_failure(
+    application_name: str,
+    workflow_ids: list[str],
+    application_version: str | None = None,
+    queue_name: str | None = None,
+    queue_partition_key: str | None = None,
+    from_last_failure: bool = False,
+    from_last_step: bool = False,
+    from_step: int | None = None,
+    from_step_name: str | None = None,
+) -> dict[str, Any]:
+    """Fork multiple failed workflows from a specific point.
+
+    Creates new workflows that re-execute from a chosen point, reusing the
+    recorded outputs of all prior steps. Useful for retrying a batch of failed
+    workflows after deploying a fix.
+
+    IMPORTANT: You must set exactly one of from_last_failure, from_last_step, from_step, or from_step_name.
+
+    Args:
+        application_name (string, required): Name of the DBOS application
+        workflow_ids (array of strings, required): UUIDs of the workflows to fork
+        application_version (string, optional): Application version for the new workflows (defaults to current version)
+        queue_name (string, optional): Enqueue the forked workflows onto this queue
+        queue_partition_key (string, optional): Partition key for the queue
+        from_last_failure (bool, optional): Fork from the last failed step (default: false)
+        from_last_step (bool, optional): Fork from the last executed step (default: false)
+        from_step (int, optional): Fork from this specific step number
+        from_step_name (string, optional): Fork from the step with this function name
+
+    Returns:
+        workflow_ids (array of strings): UUIDs of the newly created forked workflows
+        count (int): Number of workflows forked
+    """
+    new_ids = await client.fork_from_failure(
+        application_name=application_name,
+        workflow_ids=workflow_ids,
+        application_version=application_version,
+        queue_name=queue_name,
+        queue_partition_key=queue_partition_key,
+        from_last_failure=from_last_failure,
+        from_last_step=from_last_step,
+        from_step=from_step,
+        from_step_name=from_step_name,
+    )
+    return {
+        "workflow_ids": new_ids,
+        "count": len(new_ids),
+    }
+
+
+@mcp.tool()
 async def delete_workflow(
     application_name: str,
     workflow_id: str,
