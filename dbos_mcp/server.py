@@ -592,9 +592,9 @@ async def get_workflow_aggregates(
     workflows failed today?", "how many workflows are pending per queue?",
     "what's the worst queue-wait time per workflow name?").
 
-    Select at least one select_* flag to populate aggregate values. Select at
-    least one group_by_* flag to break the results down by dimension; with no
-    group_by_*, you get a single row across all matching workflows.
+    Select at least one select_* flag to populate aggregate values. At least
+    one group_by_* flag is mandatory to break the results down by dimension;
+    a query with no group_by_* will fail.
 
     Args:
         application_name (string, required): Name of the DBOS application
