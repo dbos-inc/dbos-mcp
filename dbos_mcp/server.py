@@ -567,20 +567,34 @@ async def get_workflow_aggregates(
     group_by_queue_name: bool = False,
     group_by_executor_id: bool = False,
     group_by_application_version: bool = False,
+    select_count: bool = False,
+    select_min_created_at: bool = False,
+    select_max_queue_wait_ms: bool = False,
+    select_max_total_latency_ms: bool = False,
     status: list[str] | None = None,
     start_time: str | None = None,
     end_time: str | None = None,
+    completed_after: str | None = None,
+    completed_before: str | None = None,
+    dequeued_after: str | None = None,
+    dequeued_before: str | None = None,
     name: list[str] | None = None,
     app_version: list[str] | None = None,
     executor_id: list[str] | None = None,
     queue_name: list[str] | None = None,
     workflow_id_prefix: list[str] | None = None,
+    time_bucket_size_ms: int | None = None,
 ) -> dict[str, Any]:
-    """Get workflow aggregate counts from DBOS Conductor.
+    """Get workflow aggregate metrics from DBOS Conductor.
 
-    Returns workflow counts grouped by one or more dimensions. Useful for
+    Returns workflow aggregates grouped by one or more dimensions. Useful for
     dashboards and understanding workflow status at a glance (e.g., "how many
-    workflows failed today?" or "how many workflows are pending per queue?").
+    workflows failed today?", "how many workflows are pending per queue?",
+    "what's the worst queue-wait time per workflow name?").
+
+    Select at least one select_* flag to populate aggregate values. Select at
+    least one group_by_* flag to break the results down by dimension; with no
+    group_by_*, you get a single row across all matching workflows.
 
     Args:
         application_name (string, required): Name of the DBOS application
@@ -589,19 +603,31 @@ async def get_workflow_aggregates(
         group_by_queue_name (bool, optional): Group results by queue name (default: false)
         group_by_executor_id (bool, optional): Group results by executor ID (default: false)
         group_by_application_version (bool, optional): Group results by application version (default: false)
+        select_count (bool, optional): Include count of workflows in each group (default: false)
+        select_min_created_at (bool, optional): Include min created_at (epoch ms) in each group (default: false)
+        select_max_queue_wait_ms (bool, optional): Include max queue wait time (ms) in each group (default: false)
+        select_max_total_latency_ms (bool, optional): Include max end-to-end latency (ms) in each group (default: false)
         status (array of strings, optional): Filter to these statuses before aggregating
         start_time (string, optional): Filter workflows created after this time (ISO 8601)
         end_time (string, optional): Filter workflows created before this time (ISO 8601)
+        completed_after (string, optional): Filter workflows completed after this time (ISO 8601)
+        completed_before (string, optional): Filter workflows completed before this time (ISO 8601)
+        dequeued_after (string, optional): Filter workflows dequeued after this time (ISO 8601)
+        dequeued_before (string, optional): Filter workflows dequeued before this time (ISO 8601)
         name (array of strings, optional): Filter to these workflow names before aggregating
         app_version (array of strings, optional): Filter to these application versions
         executor_id (array of strings, optional): Filter to these executor IDs
         queue_name (array of strings, optional): Filter to these queue names
         workflow_id_prefix (array of strings, optional): Filter to workflow IDs starting with these prefixes
+        time_bucket_size_ms (int, optional): Bucket aggregates into time windows of this many milliseconds
 
     Returns:
         aggregates: Array of aggregate objects, each containing:
-            - group (object): Map of dimension names to values (e.g., {"status": "ERROR", "workflow_name": "processOrder"})
-            - count (int): Number of workflows matching this group
+            - group (object): Map of dimension names to values (e.g., {"status": "ERROR", "name": "processOrder"})
+            - count (int, optional): Number of workflows matching this group (if select_count)
+            - min_created_at (int, optional): Earliest created_at in epoch ms (if select_min_created_at)
+            - max_queue_wait_ms (int, optional): Max queue wait time in ms (if select_max_queue_wait_ms)
+            - max_total_latency_ms (int, optional): Max end-to-end latency in ms (if select_max_total_latency_ms)
         application (string): Name of the application queried
     """
     aggregates = await client.get_workflow_aggregates(
@@ -611,14 +637,23 @@ async def get_workflow_aggregates(
         group_by_queue_name=group_by_queue_name,
         group_by_executor_id=group_by_executor_id,
         group_by_application_version=group_by_application_version,
+        select_count=select_count,
+        select_min_created_at=select_min_created_at,
+        select_max_queue_wait_ms=select_max_queue_wait_ms,
+        select_max_total_latency_ms=select_max_total_latency_ms,
         status=status,
         start_time=start_time,
         end_time=end_time,
+        completed_after=completed_after,
+        completed_before=completed_before,
+        dequeued_after=dequeued_after,
+        dequeued_before=dequeued_before,
         name=name,
         app_version=app_version,
         executor_id=executor_id,
         queue_name=queue_name,
         workflow_id_prefix=workflow_id_prefix,
+        time_bucket_size_ms=time_bucket_size_ms,
     )
     return {
         "aggregates": aggregates,
