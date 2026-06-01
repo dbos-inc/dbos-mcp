@@ -499,14 +499,23 @@ async def get_workflow_aggregates(
     group_by_queue_name: bool = False,
     group_by_executor_id: bool = False,
     group_by_application_version: bool = False,
+    select_count: bool = False,
+    select_min_created_at: bool = False,
+    select_max_queue_wait_ms: bool = False,
+    select_max_total_latency_ms: bool = False,
     status: list[str] | None = None,
     start_time: str | None = None,
     end_time: str | None = None,
+    completed_after: str | None = None,
+    completed_before: str | None = None,
+    dequeued_after: str | None = None,
+    dequeued_before: str | None = None,
     name: list[str] | None = None,
     app_version: list[str] | None = None,
     executor_id: list[str] | None = None,
     queue_name: list[str] | None = None,
     workflow_id_prefix: list[str] | None = None,
+    time_bucket_size_ms: int | None = None,
 ) -> list[dict[str, Any]]:
     """Get workflow aggregates (counts grouped by dimensions)."""
     creds = _get_credentials()
@@ -516,6 +525,10 @@ async def get_workflow_aggregates(
         "group_by_queue_name": group_by_queue_name,
         "group_by_executor_id": group_by_executor_id,
         "group_by_application_version": group_by_application_version,
+        "select_count": select_count,
+        "select_min_created_at": select_min_created_at,
+        "select_max_queue_wait_ms": select_max_queue_wait_ms,
+        "select_max_total_latency_ms": select_max_total_latency_ms,
     }
     if status is not None:
         body["status"] = status
@@ -523,6 +536,14 @@ async def get_workflow_aggregates(
         body["start_time"] = start_time
     if end_time is not None:
         body["end_time"] = end_time
+    if completed_after is not None:
+        body["completed_after"] = completed_after
+    if completed_before is not None:
+        body["completed_before"] = completed_before
+    if dequeued_after is not None:
+        body["dequeued_after"] = dequeued_after
+    if dequeued_before is not None:
+        body["dequeued_before"] = dequeued_before
     if name is not None:
         body["name"] = name
     if app_version is not None:
@@ -533,6 +554,8 @@ async def get_workflow_aggregates(
         body["queue_name"] = queue_name
     if workflow_id_prefix is not None:
         body["workflow_id_prefix"] = workflow_id_prefix
+    if time_bucket_size_ms is not None:
+        body["time_bucket_size_ms"] = time_bucket_size_ms
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -545,8 +568,7 @@ async def get_workflow_aggregates(
             timeout=30.0,
         )
         response.raise_for_status()
-        data = response.json()
-        result: list[dict[str, Any]] = data.get("output", [])
+        result: list[dict[str, Any]] = response.json()
         return result
 
 
