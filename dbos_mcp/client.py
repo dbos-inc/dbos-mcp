@@ -158,6 +158,10 @@ async def list_workflows(
     authenticated_user: str | list[str] | None = None,
     start_time: str | None = None,
     end_time: str | None = None,
+    completed_after: str | None = None,
+    completed_before: str | None = None,
+    dequeued_after: str | None = None,
+    dequeued_before: str | None = None,
     status: str | list[str] | None = None,
     application_version: str | list[str] | None = None,
     forked_from: str | list[str] | None = None,
@@ -172,6 +176,7 @@ async def list_workflows(
     executor_id: str | list[str] | None = None,
     queues_only: bool | None = None,
     was_forked_from: bool | None = None,
+    has_parent: bool | None = None,
 ) -> list[dict[str, Any]]:
     """List workflows with optional filters."""
     creds = _get_credentials()
@@ -187,6 +192,14 @@ async def list_workflows(
         body["start_time"] = start_time
     if end_time is not None:
         body["end_time"] = end_time
+    if completed_after is not None:
+        body["completed_after"] = completed_after
+    if completed_before is not None:
+        body["completed_before"] = completed_before
+    if dequeued_after is not None:
+        body["dequeued_after"] = dequeued_after
+    if dequeued_before is not None:
+        body["dequeued_before"] = dequeued_before
     if status is not None:
         body["status"] = status
     if application_version is not None:
@@ -215,6 +228,8 @@ async def list_workflows(
         body["queues_only"] = queues_only
     if was_forked_from is not None:
         body["was_forked_from"] = was_forked_from
+    if has_parent is not None:
+        body["has_parent"] = has_parent
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -254,12 +269,21 @@ async def get_workflow(
 async def list_steps(
     application_name: str,
     workflow_id: str,
+    limit: int | None = None,
+    offset: int | None = None,
 ) -> list[dict[str, Any]]:
     """Get execution steps for a workflow."""
     creds = _get_credentials()
+    params: dict[str, Any] = {}
+    if limit is not None:
+        params["limit"] = limit
+    if offset is not None:
+        params["offset"] = offset
+
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/{workflow_id}/steps",
+            params=params,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {creds['token']}",
@@ -293,12 +317,18 @@ async def list_executors(
 async def cancel_workflow(
     application_name: str,
     workflow_id: str,
+    cancel_children: bool = False,
 ) -> None:
     """Cancel a workflow."""
     creds = _get_credentials()
+    params: dict[str, Any] = {}
+    if cancel_children:
+        params["cancel_children"] = "true"
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/{workflow_id}/cancel",
+            params=params,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {creds['token']}",
@@ -311,12 +341,18 @@ async def cancel_workflow(
 async def resume_workflow(
     application_name: str,
     workflow_id: str,
+    queue_name: str | None = None,
 ) -> None:
     """Resume a workflow."""
     creds = _get_credentials()
+    body: dict[str, Any] = {}
+    if queue_name is not None:
+        body["queue_name"] = queue_name
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/{workflow_id}/resume",
+            json=body,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {creds['token']}",
@@ -332,6 +368,8 @@ async def fork_workflow(
     start_step: int,
     application_version: str | None = None,
     new_workflow_id: str | None = None,
+    queue_name: str | None = None,
+    queue_partition_key: str | None = None,
 ) -> dict[str, Any]:
     """Fork a workflow from a specific step."""
     creds = _get_credentials()
@@ -340,6 +378,10 @@ async def fork_workflow(
         body["application_version"] = application_version
     if new_workflow_id is not None:
         body["new_workflow_id"] = new_workflow_id
+    if queue_name is not None:
+        body["queue_name"] = queue_name
+    if queue_partition_key is not None:
+        body["queue_partition_key"] = queue_partition_key
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -359,13 +401,18 @@ async def fork_workflow(
 async def bulk_cancel_workflows(
     application_name: str,
     workflow_ids: list[str],
+    cancel_children: bool = False,
 ) -> None:
     """Cancel multiple workflows."""
     creds = _get_credentials()
+    body: dict[str, Any] = {"workflow_ids": workflow_ids}
+    if cancel_children:
+        body["cancel_children"] = True
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{application_name}/workflows/cancel",
-            json={"workflow_ids": workflow_ids},
+            json=body,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {creds['token']}",
@@ -619,7 +666,6 @@ async def list_schedules(
     status: str | list[str] | None = None,
     workflow_name: str | list[str] | None = None,
     schedule_name_prefix: str | list[str] | None = None,
-    load_context: bool | None = None,
 ) -> list[dict[str, Any]]:
     """List schedules for an application."""
     creds = _get_credentials()
@@ -630,8 +676,6 @@ async def list_schedules(
         body["workflow_name"] = workflow_name
     if schedule_name_prefix is not None:
         body["schedule_name_prefix"] = schedule_name_prefix
-    if load_context is not None:
-        body["load_context"] = load_context
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
