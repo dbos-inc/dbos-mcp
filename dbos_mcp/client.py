@@ -635,8 +635,7 @@ async def get_workflow_events(
             timeout=30.0,
         )
         response.raise_for_status()
-        data = response.json()
-        result: list[dict[str, Any]] = data.get("events", [])
+        result: list[dict[str, Any]] = response.json()
         return result
 
 
@@ -656,8 +655,7 @@ async def get_workflow_notifications(
             timeout=30.0,
         )
         response.raise_for_status()
-        data = response.json()
-        result: list[dict[str, Any]] = data.get("notifications", [])
+        result: list[dict[str, Any]] = response.json()
         return result
 
 
@@ -688,8 +686,7 @@ async def list_schedules(
             timeout=30.0,
         )
         response.raise_for_status()
-        data = response.json()
-        result: list[dict[str, Any]] = data.get("output", [])
+        result: list[dict[str, Any]] = response.json()
         return result
 
 
@@ -709,8 +706,7 @@ async def get_schedule(
             timeout=30.0,
         )
         response.raise_for_status()
-        data = response.json()
-        result: dict[str, Any] = data.get("output", {})
+        result: dict[str, Any] = response.json()
         return result
 
 
@@ -785,8 +781,7 @@ async def list_application_versions(
             timeout=30.0,
         )
         response.raise_for_status()
-        data = response.json()
-        result: list[dict[str, Any]] = data.get("output", [])
+        result: list[dict[str, Any]] = response.json()
         return result
 
 
