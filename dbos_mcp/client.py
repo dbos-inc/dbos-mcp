@@ -56,10 +56,19 @@ def _get_credentials() -> dict[str, str]:
 
 
 def _as_list(value: str | list[str] | None) -> list[str] | None:
-    """Normalize a scalar-or-list filter to the list form the v2 API expects."""
+    """Normalize a scalar-or-list filter to the list form the v2 API expects.
+
+    Empty strings are dropped, and a filter left with no values is omitted
+    entirely. No workflow ID, name, status, or queue is ever the empty string,
+    so filtering on one could only ever match nothing -- and the API would
+    answer with a perfectly ordinary "0 results" rather than an error. Treating
+    a blank as absent keeps that from silently reading as "nothing exists", and
+    matches how v2's query-parameter endpoints already ignore blank filters.
+    """
     if value is None:
         return None
-    return [value] if isinstance(value, str) else value
+    items = [value] if isinstance(value, str) else value
+    return [v for v in items if v != ""] or None
 
 
 def _strip_schema(data: Any) -> Any:
@@ -244,7 +253,7 @@ async def list_workflows(
 ) -> list[dict[str, Any]]:
     """List workflows with optional filters."""
     body = _compact(
-        workflowIds=workflow_uuids,
+        workflowIds=_as_list(workflow_uuids),
         workflowName=_as_list(workflow_name),
         user=_as_list(authenticated_user),
         startTime=start_time,
@@ -495,20 +504,20 @@ async def get_workflow_aggregates(
     }
     body.update(
         _compact(
-            status=status,
+            status=_as_list(status),
             startTime=start_time,
             endTime=end_time,
             completedAfter=completed_after,
             completedBefore=completed_before,
             dequeuedAfter=dequeued_after,
             dequeuedBefore=dequeued_before,
-            workflowName=name,
-            appVersion=app_version,
-            executorId=executor_id,
-            queueName=queue_name,
-            workflowIdPrefix=workflow_id_prefix,
+            workflowName=_as_list(name),
+            appVersion=_as_list(app_version),
+            executorId=_as_list(executor_id),
+            queueName=_as_list(queue_name),
+            workflowIdPrefix=_as_list(workflow_id_prefix),
             timeBucketSizeMs=time_bucket_size_ms,
-            scheduleName=schedule_name,
+            scheduleName=_as_list(schedule_name),
         )
     )
 
