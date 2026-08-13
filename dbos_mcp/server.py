@@ -127,7 +127,7 @@ async def list_workflows(
         load_output (bool, optional): Include workflow output data in response (default: false; always false for private-mode applications)
         executor_id (string or array of strings, optional): Filter by executor ID running the workflow
         queues_only (bool, optional): Only return workflows that are on a queue (default: false)
-        was_forked_from (bool, optional): If true, only return forked workflows. If false, only return non-forked workflows.
+        was_forked_from (bool, optional): If true, only return workflows that other workflows have been forked from (fork sources). If false, only return workflows that have never been forked from. To find the forks themselves, use forked_from instead.
         has_parent (bool, optional): If true, only return child workflows. If false, only return workflows without a parent.
         schedule_name (string or array of strings, optional): Filter to workflows started by these schedules
 
@@ -157,7 +157,7 @@ async def list_workflows(
             - forkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
             - parentWorkflowId (string, optional): If this is a child workflow, the ID of the parent workflow that started it
             - dequeuedAt (string, optional): When this workflow was dequeued from its queue (ISO 8601)
-            - wasForkedFrom (bool): Whether this workflow was forked from another workflow
+            - wasForkedFrom (bool): Whether another workflow has been forked from this one (true on the fork's source, not on the fork itself; a fork has forkedFrom set instead)
             - delayUntil (string, optional): If this workflow has a delayed start, the time until which it is delayed (ISO 8601)
             - completedAt (string, optional): When this workflow completed (ISO 8601)
             - attributes (string, optional): Application-defined attributes attached to the workflow, if any
@@ -238,7 +238,7 @@ async def get_workflow(
         forkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
         parentWorkflowId (string, optional): If this is a child workflow, the ID of the parent workflow that started it
         dequeuedAt (string, optional): When this workflow was dequeued from its queue (ISO 8601)
-        wasForkedFrom (bool): Whether this workflow was forked from another workflow
+        wasForkedFrom (bool): Whether another workflow has been forked from this one (true on the fork's source, not on the fork itself; a fork has forkedFrom set instead)
         delayUntil (string, optional): If this workflow has a delayed start, the time until which it is delayed (ISO 8601)
         completedAt (string, optional): When this workflow completed (ISO 8601)
         attributes (string, optional): Application-defined attributes attached to the workflow, if any
@@ -679,7 +679,9 @@ async def get_workflow_aggregates(
         aggregates: Array of aggregate objects, each containing:
             - group (object): Map of dimension names to values. Keys are snake_case:
               status, name, queue_name, executor_id, application_version, application_name
-              (e.g., {"status": "ERROR", "name": "processOrder"})
+              (e.g., {"status": "ERROR", "name": "processOrder"}). If time_bucket_size_ms
+              is set, each group also carries a time_bucket key whose value is the bucket's
+              start time as Unix epoch milliseconds (a string), not ISO 8601.
             - count (int, optional): Number of workflows matching this group (if select_count)
             - minCreatedAt (string, optional): Earliest creation time, ISO 8601 (if select_min_created_at)
             - maxQueueWaitMs (int, optional): Max queue wait time in ms (if select_max_queue_wait_ms)
