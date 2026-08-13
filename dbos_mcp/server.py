@@ -52,17 +52,17 @@ async def list_applications() -> dict[str, Any]:
 
     Returns:
         applications: Array of application objects, each containing:
-            - application_id (string): Unique identifier
-            - application_name (string): Name of the application
-            - org_id (string): Organization ID
+            - id (string): Unique identifier
+            - name (string): Name of the application
+            - orgId (string): Organization ID
             - status (string): "AVAILABLE" or "UNAVAILABLE"
             - language (string, optional): Programming language of the application
-            - gc_time_threshold_ms (int, optional): Garbage collection time threshold in milliseconds
-            - gc_rows_threshold (int, optional): Garbage collection rows threshold (default 1000000)
-            - global_timeout_ms (int, optional): Global workflow timeout in milliseconds
-            - executor_timeout_secs (int): Seconds a disconnected executor can remain before being marked dead and having its workflows recovered (default 60)
-            - private_mode (bool): If true, Conductor never loads application data such as workflow inputs/outputs or schedule contexts
-            - dbos_cloud (bool): Whether the application was provisioned by DBOS Cloud
+            - gcTimeThresholdMs (int, optional): Garbage collection time threshold in milliseconds
+            - gcRowsThreshold (int, optional): Garbage collection rows threshold (default 1000000)
+            - globalTimeoutMs (int, optional): Global workflow timeout in milliseconds
+            - executorTimeoutSecs (int): Seconds a disconnected executor can remain before being marked dead and having its workflows recovered (default 60)
+            - privateMode (bool): If true, Conductor never loads application data such as workflow inputs/outputs or schedule contexts
+            - dbosCloud (bool): Whether the application was provisioned by DBOS Cloud
         count: Number of applications returned
     """
     applications = await client.list_applications()
@@ -99,6 +99,7 @@ async def list_workflows(
     queues_only: bool | None = None,
     was_forked_from: bool | None = None,
     has_parent: bool | None = None,
+    schedule_name: str | list[str] | None = None,
 ) -> dict[str, Any]:
     """List workflows from DBOS Conductor with optional filters.
 
@@ -128,36 +129,40 @@ async def list_workflows(
         queues_only (bool, optional): Only return workflows that are on a queue (default: false)
         was_forked_from (bool, optional): If true, only return forked workflows. If false, only return non-forked workflows.
         has_parent (bool, optional): If true, only return child workflows. If false, only return workflows without a parent.
+        schedule_name (string or array of strings, optional): Filter to workflows started by these schedules
 
     Returns:
         workflows: Array of workflow objects, each containing:
-            - WorkflowUUID (string): The workflow ID
-            - Status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, DELAYED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
-            - WorkflowName (string): The name of the workflow function
-            - WorkflowClassName (string, optional): The name of the workflow's class, if any
-            - WorkflowConfigName (string, optional): The name with which the workflow's class instance was configured, if any
-            - AuthenticatedUser (string, optional): The user who ran the workflow, if specified
-            - AssumedRole (string, optional): The role with which the workflow ran, if specified
-            - AuthenticatedRoles (string, optional): All roles which the authenticated user could assume (JSON array)
-            - Input (string, optional): The workflow input, in a human-readable representation (only if load_input=true)
-            - Output (string, optional): The workflow's output, if any, in a human-readable representation (only if load_output=true)
-            - Error (string, optional): The error the workflow threw, if any
-            - CreatedAt (string): Workflow start time as Unix epoch milliseconds
-            - UpdatedAt (string): Last time the workflow status was updated as Unix epoch milliseconds
-            - QueueName (string, optional): If this workflow was enqueued, on which queue
-            - ApplicationVersion (string): The application version on which this workflow was started
-            - ExecutorID (string, optional): The executor to most recently execute this workflow
-            - WorkflowTimeoutMS (string, optional): The start-to-close timeout of the workflow in ms
-            - WorkflowDeadlineEpochMS (string, optional): The deadline of the workflow, computed by adding its timeout to its start time (epoch ms)
-            - DeduplicationID (string, optional): Unique ID for deduplication on a queue
-            - Priority (string, optional): Priority of the workflow on the queue (1-2147483647, lower is higher priority)
-            - QueuePartitionKey (string, optional): If this workflow is enqueued on a partitioned queue, its partition key
-            - ForkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
-            - ParentWorkflowID (string, optional): If this is a child workflow, the ID of the parent workflow that started it
-            - DequeuedAt (string, optional): When this workflow was dequeued from its queue (Unix epoch milliseconds)
-            - WasForkedFrom (bool): Whether this workflow was forked from another workflow
-            - DelayUntilEpochMS (string, optional): If this workflow has a delayed start, the epoch ms timestamp until which it is delayed
-            - CompletedAt (string, optional): When this workflow completed (Unix epoch milliseconds)
+            - workflowId (string): The workflow ID
+            - status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, DELAYED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
+            - workflowName (string): The name of the workflow function
+            - workflowClass (string, optional): The name of the workflow's class, if any
+            - workflowConfig (string, optional): The name with which the workflow's class instance was configured, if any
+            - user (string, optional): The user who ran the workflow, if specified
+            - assumedRole (string, optional): The role with which the workflow ran, if specified
+            - roles (string, optional): All roles which the authenticated user could assume (JSON array)
+            - input (string, optional): The workflow input, in a human-readable representation (only if load_input=true)
+            - output (string, optional): The workflow's output, if any, in a human-readable representation (only if load_output=true)
+            - error (string, optional): The error the workflow threw, if any (only if load_output=true; get_workflow always returns it)
+            - createdAt (string): Workflow start time (ISO 8601)
+            - updatedAt (string): Last time the workflow status was updated (ISO 8601)
+            - queueName (string, optional): If this workflow was enqueued, on which queue
+            - appVersion (string): The application version on which this workflow was started
+            - executorId (string, optional): The executor to most recently execute this workflow
+            - timeoutMs (int, optional): The start-to-close timeout of the workflow in ms
+            - deadline (string, optional): The deadline of the workflow, computed by adding its timeout to its start time (ISO 8601)
+            - deduplicationId (string, optional): Unique ID for deduplication on a queue
+            - priority (int): Priority of the workflow on the queue (1-2147483647, lower is higher priority)
+            - queuePartitionKey (string, optional): If this workflow is enqueued on a partitioned queue, its partition key
+            - forkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
+            - parentWorkflowId (string, optional): If this is a child workflow, the ID of the parent workflow that started it
+            - dequeuedAt (string, optional): When this workflow was dequeued from its queue (ISO 8601)
+            - wasForkedFrom (bool): Whether this workflow was forked from another workflow
+            - delayUntil (string, optional): If this workflow has a delayed start, the time until which it is delayed (ISO 8601)
+            - completedAt (string, optional): When this workflow completed (ISO 8601)
+            - attributes (string, optional): Application-defined attributes attached to the workflow, if any
+            - scheduleName (string, optional): If this workflow was started by a schedule, that schedule's name
+            - applicationName (string, optional): Name of the application that owns the workflow
         count (int): Number of workflows returned
         application (string): Name of the application queried
     """
@@ -187,6 +192,7 @@ async def list_workflows(
         queues_only=queues_only,
         was_forked_from=was_forked_from,
         has_parent=has_parent,
+        schedule_name=schedule_name,
     )
 
     return {
@@ -208,33 +214,36 @@ async def get_workflow(
         workflow_id (string, required): ID of the workflow to retrieve
 
     Returns:
-        WorkflowUUID (string): The workflow ID
-        Status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, DELAYED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
-        WorkflowName (string): The name of the workflow function
-        WorkflowClassName (string, optional): The name of the workflow's class, if any
-        WorkflowConfigName (string, optional): The name with which the workflow's class instance was configured, if any
-        AuthenticatedUser (string, optional): The user who ran the workflow, if specified
-        AssumedRole (string, optional): The role with which the workflow ran, if specified
-        AuthenticatedRoles (string, optional): All roles which the authenticated user could assume (JSON array)
-        Input (string, optional): The workflow input, in a human-readable representation
-        Output (string, optional): The workflow's output, if any, in a human-readable representation
-        Error (string, optional): The error the workflow threw, if any
-        CreatedAt (string): Workflow start time as Unix epoch milliseconds
-        UpdatedAt (string): Last time the workflow status was updated as Unix epoch milliseconds
-        QueueName (string, optional): If this workflow was enqueued, on which queue
-        ApplicationVersion (string): The application version on which this workflow was started
-        ExecutorID (string, optional): The executor to most recently execute this workflow
-        WorkflowTimeoutMS (string, optional): The start-to-close timeout of the workflow in ms
-        WorkflowDeadlineEpochMS (string, optional): The deadline of the workflow, computed by adding its timeout to its start time (epoch ms)
-        DeduplicationID (string, optional): Unique ID for deduplication on a queue
-        Priority (string, optional): Priority of the workflow on the queue (1-2147483647, lower is higher priority)
-        QueuePartitionKey (string, optional): If this workflow is enqueued on a partitioned queue, its partition key
-        ForkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
-        ParentWorkflowID (string, optional): If this is a child workflow, the ID of the parent workflow that started it
-        DequeuedAt (string, optional): When this workflow was dequeued from its queue (Unix epoch milliseconds)
-        WasForkedFrom (bool): Whether this workflow was forked from another workflow
-        DelayUntilEpochMS (string, optional): If this workflow has a delayed start, the epoch ms timestamp until which it is delayed
-        CompletedAt (string, optional): When this workflow completed (Unix epoch milliseconds)
+        workflowId (string): The workflow ID
+        status (string): PENDING, SUCCESS, ERROR, CANCELLED, ENQUEUED, DELAYED, or MAX_RECOVERY_ATTEMPTS_EXCEEDED
+        workflowName (string): The name of the workflow function
+        workflowClass (string, optional): The name of the workflow's class, if any
+        workflowConfig (string, optional): The name with which the workflow's class instance was configured, if any
+        user (string, optional): The user who ran the workflow, if specified
+        assumedRole (string, optional): The role with which the workflow ran, if specified
+        roles (string, optional): All roles which the authenticated user could assume (JSON array)
+        input (string, optional): The workflow input, in a human-readable representation
+        output (string, optional): The workflow's output, if any, in a human-readable representation
+        error (string, optional): The error the workflow threw, if any
+        createdAt (string): Workflow start time (ISO 8601)
+        updatedAt (string): Last time the workflow status was updated (ISO 8601)
+        queueName (string, optional): If this workflow was enqueued, on which queue
+        appVersion (string): The application version on which this workflow was started
+        executorId (string, optional): The executor to most recently execute this workflow
+        timeoutMs (int, optional): The start-to-close timeout of the workflow in ms
+        deadline (string, optional): The deadline of the workflow, computed by adding its timeout to its start time (ISO 8601)
+        deduplicationId (string, optional): Unique ID for deduplication on a queue
+        priority (int): Priority of the workflow on the queue (1-2147483647, lower is higher priority)
+        queuePartitionKey (string, optional): If this workflow is enqueued on a partitioned queue, its partition key
+        forkedFrom (string, optional): If this workflow was forked from another, that workflow's ID
+        parentWorkflowId (string, optional): If this is a child workflow, the ID of the parent workflow that started it
+        dequeuedAt (string, optional): When this workflow was dequeued from its queue (ISO 8601)
+        wasForkedFrom (bool): Whether this workflow was forked from another workflow
+        delayUntil (string, optional): If this workflow has a delayed start, the time until which it is delayed (ISO 8601)
+        completedAt (string, optional): When this workflow completed (ISO 8601)
+        attributes (string, optional): Application-defined attributes attached to the workflow, if any
+        scheduleName (string, optional): If this workflow was started by a schedule, that schedule's name
+        applicationName (string, optional): Name of the application that owns the workflow
     """
     return await client.get_workflow(
         application_name=application_name,
@@ -259,13 +268,13 @@ async def list_steps(
 
     Returns:
         steps: Array of step objects, each containing:
-            - function_id (int): The unique ID of the step in the workflow
-            - function_name (string): The name of the step
+            - stepId (int): The unique ID of the step in the workflow
+            - stepName (string): The name of the step
             - output (string, optional): The step's output, if any
             - error (string, optional): The error the step threw, if any
-            - child_workflow_id (string, optional): If the step starts or retrieves the result of a workflow, its ID
-            - started_at_epoch_ms (string, optional): The Unix epoch timestamp at which this step started
-            - completed_at_epoch_ms (string, optional): The Unix epoch timestamp at which this step completed
+            - childWorkflowId (string, optional): If the step starts or retrieves the result of a workflow, its ID
+            - startedAt (string, optional): When this step started (ISO 8601)
+            - completedAt (string, optional): When this step completed (ISO 8601)
         count (int): Number of steps returned
         workflow_id (string): The workflow ID queried
     """
@@ -295,17 +304,17 @@ async def list_executors(
 
     Returns:
         executors: Array of executor objects, each containing:
-            - executor_id (string): Unique identifier for this executor
-            - application_id (string): The application ID
-            - application_version (string): Version of the application running on this executor
+            - executorId (string): Unique identifier for this executor
+            - appId (string): The application ID
+            - appVersion (string): Version of the application running on this executor
             - status (string): HEALTHY, DISCONNECTED, or DEAD
-            - host_id (string, optional): Host identifier of the executor
+            - hostId (string, optional): Host identifier of the executor
             - hostname (string, optional): Hostname of the executor
-            - created_at (string): When the executor connected (Unix epoch milliseconds)
-            - updated_at (string): Last heartbeat time (Unix epoch milliseconds)
+            - createdAt (string): When the executor connected (ISO 8601)
+            - updatedAt (string): Last heartbeat time (ISO 8601)
             - language (string, optional): Programming language (e.g., "python", "typescript")
-            - dbos_version (string, optional): Version of the DBOS library
-            - executor_metadata (object, optional): Arbitrary metadata reported by the executor
+            - dbosVersion (string, optional): Version of the DBOS library
+            - executorMetadata (object, optional): Arbitrary metadata reported by the executor
         count (int): Number of executors returned
         application (string): Name of the application queried
     """
@@ -420,7 +429,7 @@ async def fork_workflow(
         queue_partition_key=queue_partition_key,
     )
     return {
-        "workflow_id": result.get("workflow_id"),
+        "workflow_id": result.get("workflowId"),
         "forked_from": workflow_id,
         "start_step": start_step,
     }
@@ -608,6 +617,7 @@ async def get_workflow_aggregates(
     group_by_queue_name: bool = False,
     group_by_executor_id: bool = False,
     group_by_application_version: bool = False,
+    group_by_application_name: bool = False,
     select_count: bool = False,
     select_min_created_at: bool = False,
     select_max_queue_wait_ms: bool = False,
@@ -625,6 +635,7 @@ async def get_workflow_aggregates(
     queue_name: list[str] | None = None,
     workflow_id_prefix: list[str] | None = None,
     time_bucket_size_ms: int | None = None,
+    schedule_name: list[str] | None = None,
 ) -> dict[str, Any]:
     """Get workflow aggregate metrics from DBOS Conductor.
 
@@ -644,8 +655,9 @@ async def get_workflow_aggregates(
         group_by_queue_name (bool, optional): Group results by queue name (default: false)
         group_by_executor_id (bool, optional): Group results by executor ID (default: false)
         group_by_application_version (bool, optional): Group results by application version (default: false)
+        group_by_application_name (bool, optional): Group results by application name (default: false)
         select_count (bool, optional): Include count of workflows in each group (default: false)
-        select_min_created_at (bool, optional): Include min created_at (epoch ms) in each group (default: false)
+        select_min_created_at (bool, optional): Include earliest creation time (ISO 8601) in each group (default: false)
         select_max_queue_wait_ms (bool, optional): Include max queue wait time (ms) in each group (default: false)
         select_max_total_latency_ms (bool, optional): Include max end-to-end latency (ms) in each group (default: false)
         status (array of strings, optional): Filter to these statuses before aggregating
@@ -661,14 +673,17 @@ async def get_workflow_aggregates(
         queue_name (array of strings, optional): Filter to these queue names
         workflow_id_prefix (array of strings, optional): Filter to workflow IDs starting with these prefixes
         time_bucket_size_ms (int, optional): Bucket aggregates into time windows of this many milliseconds
+        schedule_name (array of strings, optional): Filter to workflows started by these schedules
 
     Returns:
         aggregates: Array of aggregate objects, each containing:
-            - group (object): Map of dimension names to values (e.g., {"status": "ERROR", "name": "processOrder"})
+            - group (object): Map of dimension names to values. Keys are snake_case:
+              status, name, queue_name, executor_id, application_version, application_name
+              (e.g., {"status": "ERROR", "name": "processOrder"})
             - count (int, optional): Number of workflows matching this group (if select_count)
-            - min_created_at (int, optional): Earliest created_at in epoch ms (if select_min_created_at)
-            - max_queue_wait_ms (int, optional): Max queue wait time in ms (if select_max_queue_wait_ms)
-            - max_total_latency_ms (int, optional): Max end-to-end latency in ms (if select_max_total_latency_ms)
+            - minCreatedAt (string, optional): Earliest creation time, ISO 8601 (if select_min_created_at)
+            - maxQueueWaitMs (int, optional): Max queue wait time in ms (if select_max_queue_wait_ms)
+            - maxTotalLatencyMs (int, optional): Max end-to-end latency in ms (if select_max_total_latency_ms)
         application (string): Name of the application queried
     """
     aggregates = await client.get_workflow_aggregates(
@@ -678,6 +693,7 @@ async def get_workflow_aggregates(
         group_by_queue_name=group_by_queue_name,
         group_by_executor_id=group_by_executor_id,
         group_by_application_version=group_by_application_version,
+        group_by_application_name=group_by_application_name,
         select_count=select_count,
         select_min_created_at=select_min_created_at,
         select_max_queue_wait_ms=select_max_queue_wait_ms,
@@ -695,6 +711,7 @@ async def get_workflow_aggregates(
         queue_name=queue_name,
         workflow_id_prefix=workflow_id_prefix,
         time_bucket_size_ms=time_bucket_size_ms,
+        schedule_name=schedule_name,
     )
     return {
         "aggregates": aggregates,
@@ -752,7 +769,7 @@ async def get_workflow_notifications(
         notifications: Array of notification objects, each containing:
             - topic (string, optional): The notification topic
             - message (string): The notification message, in a human-readable representation
-            - created_at_epoch_ms (int): When the notification was sent (Unix epoch milliseconds)
+            - createdAt (string): When the notification was sent (ISO 8601)
             - consumed (bool): Whether the notification has been consumed by the workflow
         count (int): Number of notifications returned
         workflow_id (string): The workflow ID queried
@@ -771,9 +788,9 @@ async def get_workflow_notifications(
 @mcp.tool()
 async def list_schedules(
     application_name: str,
-    status: str | list[str] | None = None,
-    workflow_name: str | list[str] | None = None,
-    schedule_name_prefix: str | list[str] | None = None,
+    status: str | None = None,
+    workflow_name: str | None = None,
+    schedule_name_prefix: str | None = None,
 ) -> dict[str, Any]:
     """List schedules for an application from DBOS Conductor.
 
@@ -781,22 +798,23 @@ async def list_schedules(
 
     Args:
         application_name (string, required): Name of the DBOS application
-        status (string or array of strings, optional): Filter by schedule status (e.g., "ACTIVE", "PAUSED")
-        workflow_name (string or array of strings, optional): Filter by the workflow function the schedule triggers
-        schedule_name_prefix (string or array of strings, optional): Filter by schedule name prefix
+        status (string, optional): Filter by schedule status (e.g., "ACTIVE", "PAUSED")
+        workflow_name (string, optional): Filter by the workflow function the schedule triggers
+        schedule_name_prefix (string, optional): Filter by schedule name prefix
 
     Returns:
         schedules: Array of schedule objects, each containing:
-            - schedule_id (string): Unique identifier
-            - schedule_name (string): Name of the schedule
-            - workflow_name (string): The workflow function this schedule triggers
-            - workflow_class_name (string, optional): The workflow's class name, if any
-            - schedule (string): Cron expression defining the schedule
+            - scheduleId (string): Unique identifier
+            - scheduleName (string): Name of the schedule
+            - workflowName (string): The workflow function this schedule triggers
+            - workflowClass (string, optional): The workflow's class name, if any
+            - cronExpression (string): Cron expression defining the schedule
             - status (string): "ACTIVE" or "PAUSED"
             - context (string, optional): Schedule context, in a human-readable representation (omitted for private-mode applications)
-            - last_fired_at (string, optional): When the schedule last triggered (ISO 8601)
-            - automatic_backfill (bool): Whether missed runs are automatically backfilled
-            - cron_timezone (string, optional): Timezone for the cron expression
+            - lastFiredAt (string, optional): When the schedule last triggered (ISO 8601)
+            - automaticBackfill (bool): Whether missed runs are automatically backfilled
+            - cronTimezone (string, optional): Timezone for the cron expression
+            - applicationName (string, optional): Name of the application that owns the schedule
         count (int): Number of schedules returned
         application (string): Name of the application queried
     """
@@ -825,16 +843,17 @@ async def get_schedule(
         schedule_name (string, required): Name of the schedule
 
     Returns:
-        schedule_id (string): Unique identifier
-        schedule_name (string): Name of the schedule
-        workflow_name (string): The workflow function this schedule triggers
-        workflow_class_name (string, optional): The workflow's class name, if any
-        schedule (string): Cron expression defining the schedule
+        scheduleId (string): Unique identifier
+        scheduleName (string): Name of the schedule
+        workflowName (string): The workflow function this schedule triggers
+        workflowClass (string, optional): The workflow's class name, if any
+        cronExpression (string): Cron expression defining the schedule
         status (string): "ACTIVE" or "PAUSED"
         context (string, optional): Schedule context, in a human-readable representation (omitted for private-mode applications)
-        last_fired_at (string, optional): When the schedule last triggered (ISO 8601)
-        automatic_backfill (bool): Whether missed runs are automatically backfilled
-        cron_timezone (string, optional): Timezone for the cron expression
+        lastFiredAt (string, optional): When the schedule last triggered (ISO 8601)
+        automaticBackfill (bool): Whether missed runs are automatically backfilled
+        cronTimezone (string, optional): Timezone for the cron expression
+        applicationName (string, optional): Name of the application that owns the schedule
     """
     return await client.get_schedule(
         application_name=application_name,
@@ -916,7 +935,7 @@ async def trigger_schedule(
         schedule_name=schedule_name,
     )
     return {
-        "workflow_id": result.get("workflow_id"),
+        "workflow_id": result.get("workflowId"),
         "schedule_name": schedule_name,
     }
 
@@ -936,10 +955,10 @@ async def list_application_versions(
 
     Returns:
         versions: Array of version objects, each containing:
-            - version_id (string): Unique identifier for this version
-            - version_name (string): The version string
-            - version_timestamp (int): Version timestamp (Unix epoch milliseconds)
-            - created_at (int): When this version was first seen (Unix epoch milliseconds)
+            - versionId (string): Unique identifier for this version
+            - versionName (string): The version string
+            - versionTimestamp (string): Version timestamp (ISO 8601)
+            - createdAt (string): When this version was first seen (ISO 8601)
         count (int): Number of versions returned
         application (string): Name of the application queried
     """

@@ -1,4 +1,4 @@
-"""DBOS Conductor API client."""
+"""DBOS Conductor API client (Conductor API v2)."""
 
 import json
 import time
@@ -15,12 +15,14 @@ AUTH0_AUDIENCE = "dbos-cloud-api"
 
 # DBOS Cloud API
 DBOS_CLOUD_URL = "https://cloud.dbos.dev"
-CONDUCTOR_URL = f"{DBOS_CLOUD_URL}/conductor/v1alpha1"
+CONDUCTOR_URL = f"{DBOS_CLOUD_URL}/conductor/v2"
 
 # Storage
 CREDENTIALS_DIR = Path.home() / ".dbos-mcp"
 CREDENTIALS_PATH = CREDENTIALS_DIR / "credentials"
 PENDING_LOGIN_PATH = CREDENTIALS_DIR / "pending_login"
+
+TIMEOUT = 30.0
 
 
 def _load_credentials() -> dict[str, str] | None:
@@ -51,6 +53,72 @@ def _get_credentials() -> dict[str, str]:
     if not creds or "token" not in creds or "organization" not in creds:
         raise RuntimeError("Not logged in. Please call the login tool first.")
     return creds
+
+
+def _as_list(value: str | list[str] | None) -> list[str] | None:
+    """Normalize a scalar-or-list filter to the list form the v2 API expects."""
+    if value is None:
+        return None
+    return [value] if isinstance(value, str) else value
+
+
+def _strip_schema(data: Any) -> Any:
+    """Drop the `$schema` key the v2 API adds to single-object responses."""
+    if isinstance(data, dict):
+        return {k: v for k, v in data.items() if k != "$schema"}
+    if isinstance(data, list):
+        return [_strip_schema(item) for item in data]
+    return data
+
+
+def _compact(**fields: Any) -> dict[str, Any]:
+    """Build a request body from the fields that were actually supplied."""
+    return {k: v for k, v in fields.items() if v is not None}
+
+
+async def _request(
+    method: str,
+    path: str,
+    *,
+    params: dict[str, Any] | None = None,
+    body: dict[str, Any] | None = None,
+) -> Any:
+    """Send an authenticated request to the Conductor v2 API under the caller's org."""
+    creds = _get_credentials()
+    url = f"{CONDUCTOR_URL}/orgs/{_path(creds['organization'])}{path}"
+    async with httpx.AsyncClient() as client:
+        response = await client.request(
+            method,
+            url,
+            params=params or None,
+            json=body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=TIMEOUT,
+        )
+        response.raise_for_status()
+        if response.status_code == 204 or not response.content:
+            return None
+        return _strip_schema(response.json())
+
+
+async def _app_request(
+    method: str,
+    application_name: str,
+    path: str,
+    *,
+    params: dict[str, Any] | None = None,
+    body: dict[str, Any] | None = None,
+) -> Any:
+    """Send an authenticated request scoped to a single application."""
+    return await _request(
+        method,
+        f"/apps/{_path(application_name)}{path}",
+        params=params,
+        body=body,
+    )
 
 
 async def login() -> dict[str, str]:
@@ -119,7 +187,7 @@ async def login_complete() -> dict[str, str]:
         # Get user profile
         access_token = token_data["access_token"]
         response = await http.get(
-            f"{DBOS_CLOUD_URL}/v1alpha1/user/profile",
+            f"{CONDUCTOR_URL}/users/me",
             headers={"Authorization": f"Bearer {access_token}"},
         )
         response.raise_for_status()
@@ -128,8 +196,8 @@ async def login_complete() -> dict[str, str]:
         # Save credentials and clean up
         credentials = {
             "token": access_token,
-            "userName": profile.get("Name", ""),
-            "organization": profile.get("Organization", ""),
+            "userName": profile.get("name", ""),
+            "organization": profile.get("orgName", ""),
         }
         _save_credentials(credentials)
         PENDING_LOGIN_PATH.unlink(missing_ok=True)
@@ -142,19 +210,8 @@ async def login_complete() -> dict[str, str]:
 
 async def list_applications() -> list[dict[str, Any]]:
     """List all applications."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: list[dict[str, Any]] = response.json()
-        return result
+    result: list[dict[str, Any]] = await _request("GET", "/apps")
+    return result
 
 
 async def list_workflows(
@@ -183,73 +240,40 @@ async def list_workflows(
     queues_only: bool | None = None,
     was_forked_from: bool | None = None,
     has_parent: bool | None = None,
+    schedule_name: str | list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """List workflows with optional filters."""
-    creds = _get_credentials()
-    body: dict[str, Any] = {}
-
-    if workflow_uuids is not None:
-        body["workflow_uuids"] = workflow_uuids
-    if workflow_name is not None:
-        body["workflow_name"] = workflow_name
-    if authenticated_user is not None:
-        body["authenticated_user"] = authenticated_user
-    if start_time is not None:
-        body["start_time"] = start_time
-    if end_time is not None:
-        body["end_time"] = end_time
-    if completed_after is not None:
-        body["completed_after"] = completed_after
-    if completed_before is not None:
-        body["completed_before"] = completed_before
-    if dequeued_after is not None:
-        body["dequeued_after"] = dequeued_after
-    if dequeued_before is not None:
-        body["dequeued_before"] = dequeued_before
-    if status is not None:
-        body["status"] = status
-    if application_version is not None:
-        body["application_version"] = application_version
-    if forked_from is not None:
-        body["forked_from"] = forked_from
-    if parent_workflow_id is not None:
-        body["parent_workflow_id"] = parent_workflow_id
-    if queue_name is not None:
-        body["queue_name"] = queue_name
-    if limit is not None:
-        body["limit"] = limit
-    if offset is not None:
-        body["offset"] = offset
-    if sort_desc is not None:
-        body["sort_desc"] = sort_desc
-    if workflow_id_prefix is not None:
-        body["workflow_id_prefix"] = workflow_id_prefix
-    if load_input is not None:
-        body["load_input"] = load_input
-    if load_output is not None:
-        body["load_output"] = load_output
-    if executor_id is not None:
-        body["executor_id"] = executor_id
-    if queues_only is not None:
-        body["queues_only"] = queues_only
-    if was_forked_from is not None:
-        body["was_forked_from"] = was_forked_from
-    if has_parent is not None:
-        body["has_parent"] = has_parent
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/",
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: list[dict[str, Any]] = response.json()
-        return result
+    body = _compact(
+        workflowIds=workflow_uuids,
+        workflowName=_as_list(workflow_name),
+        user=_as_list(authenticated_user),
+        startTime=start_time,
+        endTime=end_time,
+        completedAfter=completed_after,
+        completedBefore=completed_before,
+        dequeuedAfter=dequeued_after,
+        dequeuedBefore=dequeued_before,
+        status=_as_list(status),
+        appVersion=_as_list(application_version),
+        forkedFrom=_as_list(forked_from),
+        parentWorkflowId=_as_list(parent_workflow_id),
+        queueName=_as_list(queue_name),
+        limit=limit,
+        offset=offset,
+        sortDesc=sort_desc,
+        workflowIdPrefix=_as_list(workflow_id_prefix),
+        loadInput=load_input,
+        loadOutput=load_output,
+        executorId=_as_list(executor_id),
+        queuesOnly=queues_only,
+        wasForkedFrom=was_forked_from,
+        hasParent=has_parent,
+        scheduleName=_as_list(schedule_name),
+    )
+    result: list[dict[str, Any]] = await _app_request(
+        "POST", application_name, "/workflows/search", body=body
+    )
+    return result
 
 
 async def get_workflow(
@@ -257,19 +281,10 @@ async def get_workflow(
     workflow_id: str,
 ) -> dict[str, Any]:
     """Get a specific workflow by ID."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/{_path(workflow_id)}",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: dict[str, Any] = response.json()
-        return result
+    result: dict[str, Any] = await _app_request(
+        "GET", application_name, f"/workflows/{_path(workflow_id)}"
+    )
+    return result
 
 
 async def list_steps(
@@ -279,45 +294,23 @@ async def list_steps(
     offset: int | None = None,
 ) -> list[dict[str, Any]]:
     """Get execution steps for a workflow."""
-    creds = _get_credentials()
-    params: dict[str, Any] = {}
-    if limit is not None:
-        params["limit"] = limit
-    if offset is not None:
-        params["offset"] = offset
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/{_path(workflow_id)}/steps",
-            params=params,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: list[dict[str, Any]] = response.json()
-        return result
+    result: list[dict[str, Any]] = await _app_request(
+        "GET",
+        application_name,
+        f"/workflows/{_path(workflow_id)}/steps",
+        params=_compact(limit=limit, offset=offset),
+    )
+    return result
 
 
 async def list_executors(
     application_name: str,
 ) -> list[dict[str, Any]]:
     """List executors for an application."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/executors",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: list[dict[str, Any]] = response.json()
-        return result
+    result: list[dict[str, Any]] = await _app_request(
+        "GET", application_name, "/executors"
+    )
+    return result
 
 
 async def cancel_workflow(
@@ -326,22 +319,12 @@ async def cancel_workflow(
     cancel_children: bool = False,
 ) -> None:
     """Cancel a workflow."""
-    creds = _get_credentials()
-    params: dict[str, Any] = {}
-    if cancel_children:
-        params["cancel_children"] = "true"
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/{_path(workflow_id)}/cancel",
-            params=params,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
+    await _app_request(
+        "POST",
+        application_name,
+        f"/workflows/{_path(workflow_id)}/cancel",
+        body={"cancelChildren": cancel_children},
+    )
 
 
 async def resume_workflow(
@@ -350,22 +333,12 @@ async def resume_workflow(
     queue_name: str | None = None,
 ) -> None:
     """Resume a workflow."""
-    creds = _get_credentials()
-    body: dict[str, Any] = {}
-    if queue_name is not None:
-        body["queue_name"] = queue_name
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/{_path(workflow_id)}/resume",
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
+    await _app_request(
+        "POST",
+        application_name,
+        f"/workflows/{_path(workflow_id)}/resume",
+        body=_compact(queueName=queue_name),
+    )
 
 
 async def fork_workflow(
@@ -378,30 +351,17 @@ async def fork_workflow(
     queue_partition_key: str | None = None,
 ) -> dict[str, Any]:
     """Fork a workflow from a specific step."""
-    creds = _get_credentials()
-    body: dict[str, Any] = {"start_step": start_step}
-    if application_version is not None:
-        body["application_version"] = application_version
-    if new_workflow_id is not None:
-        body["new_workflow_id"] = new_workflow_id
-    if queue_name is not None:
-        body["queue_name"] = queue_name
-    if queue_partition_key is not None:
-        body["queue_partition_key"] = queue_partition_key
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/{_path(workflow_id)}/fork",
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: dict[str, Any] = response.json()
-        return result
+    body = _compact(
+        startStep=start_step,
+        appVersion=application_version,
+        newWorkflowId=new_workflow_id,
+        queueName=queue_name,
+        queuePartitionKey=queue_partition_key,
+    )
+    result: dict[str, Any] = await _app_request(
+        "POST", application_name, f"/workflows/{_path(workflow_id)}/fork", body=body
+    )
+    return result
 
 
 async def bulk_cancel_workflows(
@@ -410,22 +370,12 @@ async def bulk_cancel_workflows(
     cancel_children: bool = False,
 ) -> None:
     """Cancel multiple workflows."""
-    creds = _get_credentials()
-    body: dict[str, Any] = {"workflow_ids": workflow_ids}
-    if cancel_children:
-        body["cancel_children"] = True
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/cancel",
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
+    await _app_request(
+        "POST",
+        application_name,
+        "/workflows/bulk-cancel",
+        body={"workflowIds": workflow_ids, "cancelChildren": cancel_children},
+    )
 
 
 async def bulk_resume_workflows(
@@ -434,22 +384,12 @@ async def bulk_resume_workflows(
     queue_name: str | None = None,
 ) -> None:
     """Resume multiple workflows."""
-    creds = _get_credentials()
-    body: dict[str, Any] = {"workflow_ids": workflow_ids}
-    if queue_name is not None:
-        body["queue_name"] = queue_name
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/resume",
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
+    await _app_request(
+        "POST",
+        application_name,
+        "/workflows/bulk-resume",
+        body=_compact(workflowIds=workflow_ids, queueName=queue_name),
+    )
 
 
 async def bulk_delete_workflows(
@@ -458,22 +398,12 @@ async def bulk_delete_workflows(
     delete_children: bool = False,
 ) -> None:
     """Delete multiple workflows."""
-    creds = _get_credentials()
-    body: dict[str, Any] = {"workflow_ids": workflow_ids}
-    if delete_children:
-        body["delete_children"] = True
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/delete",
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
+    await _app_request(
+        "POST",
+        application_name,
+        "/workflows/bulk-delete",
+        body={"workflowIds": workflow_ids, "deleteChildren": delete_children},
+    )
 
 
 async def fork_from_failure(
@@ -488,37 +418,21 @@ async def fork_from_failure(
     from_step_name: str | None = None,
 ) -> list[str]:
     """Fork multiple workflows from their failure point."""
-    creds = _get_credentials()
-    body: dict[str, Any] = {"workflow_ids": workflow_ids}
-    if application_version is not None:
-        body["application_version"] = application_version
-    if queue_name is not None:
-        body["queue_name"] = queue_name
-    if queue_partition_key is not None:
-        body["queue_partition_key"] = queue_partition_key
-    if from_last_failure:
-        body["from_last_failure"] = True
-    if from_last_step:
-        body["from_last_step"] = True
-    if from_step is not None:
-        body["from_step"] = from_step
-    if from_step_name is not None:
-        body["from_step_name"] = from_step_name
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/fork-from-failure",
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        data = response.json()
-        result: list[str] = data.get("workflow_ids", [])
-        return result
+    body = _compact(
+        workflowIds=workflow_ids,
+        appVersion=application_version,
+        queueName=queue_name,
+        queuePartitionKey=queue_partition_key,
+        fromLastFailure=from_last_failure or None,
+        fromLastStep=from_last_step or None,
+        fromStep=from_step,
+        fromStepName=from_step_name,
+    )
+    data = await _app_request(
+        "POST", application_name, "/workflows/bulk-fork-from-failure", body=body
+    )
+    result: list[str] = data.get("workflowIds", [])
+    return result
 
 
 async def delete_workflow(
@@ -527,22 +441,16 @@ async def delete_workflow(
     delete_children: bool = False,
 ) -> None:
     """Delete a workflow."""
-    creds = _get_credentials()
     params: dict[str, Any] = {}
     if delete_children:
-        params["delete_children"] = "true"
+        params["deleteChildren"] = "true"
 
-    async with httpx.AsyncClient() as client:
-        response = await client.delete(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/{_path(workflow_id)}",
-            params=params,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
+    await _app_request(
+        "DELETE",
+        application_name,
+        f"/workflows/{_path(workflow_id)}",
+        params=params,
+    )
 
 
 async def get_workflow_aggregates(
@@ -552,6 +460,7 @@ async def get_workflow_aggregates(
     group_by_queue_name: bool = False,
     group_by_executor_id: bool = False,
     group_by_application_version: bool = False,
+    group_by_application_name: bool = False,
     select_count: bool = False,
     select_min_created_at: bool = False,
     select_max_queue_wait_ms: bool = False,
@@ -569,60 +478,44 @@ async def get_workflow_aggregates(
     queue_name: list[str] | None = None,
     workflow_id_prefix: list[str] | None = None,
     time_bucket_size_ms: int | None = None,
+    schedule_name: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Get workflow aggregates (counts grouped by dimensions)."""
-    creds = _get_credentials()
     body: dict[str, Any] = {
-        "group_by_status": group_by_status,
-        "group_by_name": group_by_name,
-        "group_by_queue_name": group_by_queue_name,
-        "group_by_executor_id": group_by_executor_id,
-        "group_by_application_version": group_by_application_version,
-        "select_count": select_count,
-        "select_min_created_at": select_min_created_at,
-        "select_max_queue_wait_ms": select_max_queue_wait_ms,
-        "select_max_total_latency_ms": select_max_total_latency_ms,
+        "groupByStatus": group_by_status,
+        "groupByWorkflowName": group_by_name,
+        "groupByQueueName": group_by_queue_name,
+        "groupByExecutorId": group_by_executor_id,
+        "groupByAppVersion": group_by_application_version,
+        "groupByApplicationName": group_by_application_name,
+        "selectCount": select_count,
+        "selectMinCreatedAt": select_min_created_at,
+        "selectMaxQueueWaitMs": select_max_queue_wait_ms,
+        "selectMaxTotalLatencyMs": select_max_total_latency_ms,
     }
-    if status is not None:
-        body["status"] = status
-    if start_time is not None:
-        body["start_time"] = start_time
-    if end_time is not None:
-        body["end_time"] = end_time
-    if completed_after is not None:
-        body["completed_after"] = completed_after
-    if completed_before is not None:
-        body["completed_before"] = completed_before
-    if dequeued_after is not None:
-        body["dequeued_after"] = dequeued_after
-    if dequeued_before is not None:
-        body["dequeued_before"] = dequeued_before
-    if name is not None:
-        body["name"] = name
-    if app_version is not None:
-        body["app_version"] = app_version
-    if executor_id is not None:
-        body["executor_id"] = executor_id
-    if queue_name is not None:
-        body["queue_name"] = queue_name
-    if workflow_id_prefix is not None:
-        body["workflow_id_prefix"] = workflow_id_prefix
-    if time_bucket_size_ms is not None:
-        body["time_bucket_size_ms"] = time_bucket_size_ms
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/aggregates",
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
+    body.update(
+        _compact(
+            status=status,
+            startTime=start_time,
+            endTime=end_time,
+            completedAfter=completed_after,
+            completedBefore=completed_before,
+            dequeuedAfter=dequeued_after,
+            dequeuedBefore=dequeued_before,
+            workflowName=name,
+            appVersion=app_version,
+            executorId=executor_id,
+            queueName=queue_name,
+            workflowIdPrefix=workflow_id_prefix,
+            timeBucketSizeMs=time_bucket_size_ms,
+            scheduleName=schedule_name,
         )
-        response.raise_for_status()
-        result: list[dict[str, Any]] = response.json()
-        return result
+    )
+
+    result: list[dict[str, Any]] = await _app_request(
+        "POST", application_name, "/workflows/aggregates", body=body
+    )
+    return result
 
 
 async def get_workflow_events(
@@ -630,19 +523,10 @@ async def get_workflow_events(
     workflow_id: str,
 ) -> list[dict[str, Any]]:
     """Get events for a workflow."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/{_path(workflow_id)}/events",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: list[dict[str, Any]] = response.json()
-        return result
+    result: list[dict[str, Any]] = await _app_request(
+        "GET", application_name, f"/workflows/{_path(workflow_id)}/events"
+    )
+    return result
 
 
 async def get_workflow_notifications(
@@ -650,50 +534,30 @@ async def get_workflow_notifications(
     workflow_id: str,
 ) -> list[dict[str, Any]]:
     """Get notifications for a workflow."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/workflows/{_path(workflow_id)}/notifications",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: list[dict[str, Any]] = response.json()
-        return result
+    result: list[dict[str, Any]] = await _app_request(
+        "GET", application_name, f"/workflows/{_path(workflow_id)}/notifications"
+    )
+    return result
 
 
 async def list_schedules(
     application_name: str,
-    status: str | list[str] | None = None,
-    workflow_name: str | list[str] | None = None,
-    schedule_name_prefix: str | list[str] | None = None,
+    status: str | None = None,
+    workflow_name: str | None = None,
+    schedule_name_prefix: str | None = None,
 ) -> list[dict[str, Any]]:
     """List schedules for an application."""
-    creds = _get_credentials()
-    body: dict[str, Any] = {}
-    if status is not None:
-        body["status"] = status
-    if workflow_name is not None:
-        body["workflow_name"] = workflow_name
-    if schedule_name_prefix is not None:
-        body["schedule_name_prefix"] = schedule_name_prefix
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/schedules/list",
-            json=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: list[dict[str, Any]] = response.json()
-        return result
+    result: list[dict[str, Any]] = await _app_request(
+        "GET",
+        application_name,
+        "/schedules",
+        params=_compact(
+            status=status,
+            workflowName=workflow_name,
+            scheduleNamePrefix=schedule_name_prefix,
+        ),
+    )
+    return result
 
 
 async def get_schedule(
@@ -701,19 +565,10 @@ async def get_schedule(
     schedule_name: str,
 ) -> dict[str, Any]:
     """Get a specific schedule by name."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/schedules/{_path(schedule_name)}",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: dict[str, Any] = response.json()
-        return result
+    result: dict[str, Any] = await _app_request(
+        "GET", application_name, f"/schedules/{_path(schedule_name)}"
+    )
+    return result
 
 
 async def pause_schedule(
@@ -721,17 +576,9 @@ async def pause_schedule(
     schedule_name: str,
 ) -> None:
     """Pause a schedule."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/schedules/{_path(schedule_name)}/pause",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
+    await _app_request(
+        "POST", application_name, f"/schedules/{_path(schedule_name)}/pause"
+    )
 
 
 async def resume_schedule(
@@ -739,17 +586,9 @@ async def resume_schedule(
     schedule_name: str,
 ) -> None:
     """Resume a paused schedule."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/schedules/{_path(schedule_name)}/resume",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
+    await _app_request(
+        "POST", application_name, f"/schedules/{_path(schedule_name)}/resume"
+    )
 
 
 async def trigger_schedule(
@@ -757,38 +596,20 @@ async def trigger_schedule(
     schedule_name: str,
 ) -> dict[str, Any]:
     """Trigger a schedule to run immediately."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/schedules/{_path(schedule_name)}/trigger",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: dict[str, Any] = response.json()
-        return result
+    result: dict[str, Any] = await _app_request(
+        "POST", application_name, f"/schedules/{_path(schedule_name)}/trigger"
+    )
+    return result
 
 
 async def list_application_versions(
     application_name: str,
 ) -> list[dict[str, Any]]:
     """List versions for an application."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/versions",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
-        result: list[dict[str, Any]] = response.json()
-        return result
+    result: list[dict[str, Any]] = await _app_request(
+        "GET", application_name, "/versions"
+    )
+    return result
 
 
 async def set_latest_application_version(
@@ -796,15 +617,9 @@ async def set_latest_application_version(
     version_name: str,
 ) -> None:
     """Set the latest application version."""
-    creds = _get_credentials()
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{CONDUCTOR_URL}/api/{creds['organization']}/applications/{_path(application_name)}/versions/set-latest",
-            json={"version_name": version_name},
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {creds['token']}",
-            },
-            timeout=30.0,
-        )
-        response.raise_for_status()
+    await _app_request(
+        "PATCH",
+        application_name,
+        "/versions/latest",
+        body={"versionName": version_name},
+    )
