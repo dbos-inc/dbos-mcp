@@ -139,8 +139,8 @@ async def list_workflows(
             - AuthenticatedUser (string, optional): The user who ran the workflow, if specified
             - AssumedRole (string, optional): The role with which the workflow ran, if specified
             - AuthenticatedRoles (string, optional): All roles which the authenticated user could assume (JSON array)
-            - Input (string, optional): The workflow input (JSON string, only if load_input=true)
-            - Output (string, optional): The workflow's output, if any (JSON string, only if load_output=true)
+            - Input (string, optional): The workflow input, in a human-readable representation (only if load_input=true)
+            - Output (string, optional): The workflow's output, if any, in a human-readable representation (only if load_output=true)
             - Error (string, optional): The error the workflow threw, if any
             - CreatedAt (string): Workflow start time as Unix epoch milliseconds
             - UpdatedAt (string): Last time the workflow status was updated as Unix epoch milliseconds
@@ -216,8 +216,8 @@ async def get_workflow(
         AuthenticatedUser (string, optional): The user who ran the workflow, if specified
         AssumedRole (string, optional): The role with which the workflow ran, if specified
         AuthenticatedRoles (string, optional): All roles which the authenticated user could assume (JSON array)
-        Input (string, optional): The workflow input (JSON string)
-        Output (string, optional): The workflow's output, if any (JSON string)
+        Input (string, optional): The workflow input, in a human-readable representation
+        Output (string, optional): The workflow's output, if any, in a human-readable representation
         Error (string, optional): The error the workflow threw, if any
         CreatedAt (string): Workflow start time as Unix epoch milliseconds
         UpdatedAt (string): Last time the workflow status was updated as Unix epoch milliseconds
@@ -710,7 +710,7 @@ async def get_workflow_events(
     """Get events received by a workflow from DBOS Conductor.
 
     Events are key-value signals sent between workflows using the events API.
-    Each event has a string key and a JSON-serialized value.
+    Each event has a string key and a value.
 
     Args:
         application_name (string, required): Name of the DBOS application
@@ -719,7 +719,7 @@ async def get_workflow_events(
     Returns:
         events: Array of event objects, each containing:
             - key (string): The event key
-            - value (string): The event value (JSON string)
+            - value (string): The event value, in a human-readable representation
         count (int): Number of events returned
         workflow_id (string): The workflow ID queried
     """
@@ -751,7 +751,7 @@ async def get_workflow_notifications(
     Returns:
         notifications: Array of notification objects, each containing:
             - topic (string, optional): The notification topic
-            - message (string): The notification message (JSON string)
+            - message (string): The notification message, in a human-readable representation
             - created_at_epoch_ms (int): When the notification was sent (Unix epoch milliseconds)
             - consumed (bool): Whether the notification has been consumed by the workflow
         count (int): Number of notifications returned
@@ -793,7 +793,7 @@ async def list_schedules(
             - workflow_class_name (string, optional): The workflow's class name, if any
             - schedule (string): Cron expression defining the schedule
             - status (string): "ACTIVE" or "PAUSED"
-            - context (string, optional): Schedule context (JSON string; omitted for private-mode applications)
+            - context (string, optional): Schedule context, in a human-readable representation (omitted for private-mode applications)
             - last_fired_at (string, optional): When the schedule last triggered (ISO 8601)
             - automatic_backfill (bool): Whether missed runs are automatically backfilled
             - cron_timezone (string, optional): Timezone for the cron expression
@@ -831,7 +831,7 @@ async def get_schedule(
         workflow_class_name (string, optional): The workflow's class name, if any
         schedule (string): Cron expression defining the schedule
         status (string): "ACTIVE" or "PAUSED"
-        context (string, optional): Schedule context (JSON string; omitted for private-mode applications)
+        context (string, optional): Schedule context, in a human-readable representation (omitted for private-mode applications)
         last_fired_at (string, optional): When the schedule last triggered (ISO 8601)
         automatic_backfill (bool): Whether missed runs are automatically backfilled
         cron_timezone (string, optional): Timezone for the cron expression
