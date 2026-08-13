@@ -310,8 +310,8 @@ async def list_executors(
             - status (string): HEALTHY, DISCONNECTED, or DEAD
             - hostId (string, optional): Host identifier of the executor
             - hostname (string, optional): Hostname of the executor
-            - createdAt (string): When the executor connected (ISO 8601)
-            - updatedAt (string): Last heartbeat time (ISO 8601)
+            - createdAt (string): When this executor first registered with Conductor (ISO 8601)
+            - updatedAt (string): When this executor's status last changed (ISO 8601).
             - language (string, optional): Programming language (e.g., "python", "typescript")
             - dbosVersion (string, optional): Version of the DBOS library
             - executorMetadata (object, optional): Arbitrary metadata reported by the executor
@@ -726,9 +726,15 @@ async def get_workflow_events(
     application_name: str,
     workflow_id: str,
 ) -> dict[str, Any]:
-    """Get events received by a workflow from DBOS Conductor.
+    """Get events published by a workflow from DBOS Conductor.
 
-    Events are key-value signals sent between workflows using the events API.
+    Events are OUTBOUND: a workflow publishes them about its own state or
+    progress via setEvent, and anything holding the workflow ID (another
+    workflow, an HTTP handler, a client) reads them via getEvent. A workflow
+    that never received anything can still have events.
+
+    To see messages sent TO a workflow, use get_workflow_notifications instead.
+
     Each event has a string key and a value.
 
     Args:
@@ -760,7 +766,11 @@ async def get_workflow_notifications(
 ) -> dict[str, Any]:
     """Get notifications received by a workflow from DBOS Conductor.
 
-    Notifications are messages sent to a workflow on a specific topic.
+    Notifications are INBOUND: another party sends a message to this workflow
+    on a topic via send, and the workflow consumes it via recv. This is the
+    tool to use for "what did this workflow receive?" — for what a workflow
+    published about itself, use get_workflow_events instead.
+
     Unlike events, multiple notifications can be sent on the same topic.
 
     Args:
