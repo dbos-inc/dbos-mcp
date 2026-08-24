@@ -2,11 +2,11 @@
 
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from dbos_mcp import client
 
-mcp = FastMCP(
+mcp = MCPServer(
     name="dbos-conductor",
     instructions="""MCP server for DBOS Conductor workflow introspection and management.
 
