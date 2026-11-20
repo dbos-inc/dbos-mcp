@@ -130,6 +130,64 @@ async def _app_request(
     )
 
 
+def _cloud_error(response: httpx.Response) -> str:
+    """Describe a failed DBOS Cloud response, keeping cloud's own message.
+
+    Cloud reports errors as {"message", "statusCode", "requestID"}. The message
+    is what explains the failure: a plan's license key limit, for one, comes
+    back as a plain 500 that only the message tells apart.
+    """
+    message = ""
+    request_id = ""
+    try:
+        body = response.json()
+        if isinstance(body, dict):
+            message = str(body.get("message") or "")
+            request_id = str(body.get("requestID") or "")
+    except ValueError:
+        pass  # A gateway's HTML page, say.
+    if not message:
+        message = f"{response.reason_phrase} (HTTP {response.status_code})"
+    if request_id:
+        message += f" (request ID {request_id})"
+    if response.status_code == 401:
+        message += ". Call login to sign in again."
+    return message
+
+
+async def create_license_key() -> dict[str, Any]:
+    """Create a limited-time trial license key for a self-hosted Conductor.
+
+    The key is a trial key that expires (see expiration_date in the response).
+    DBOS Cloud issues license keys itself, so this calls cloud's own API rather
+    than the Conductor API it proxies. That route accepts only a user's login
+    token, which is what login stores. Cloud picks the key's type and lifetime;
+    the request has no body.
+
+    Returns the API response (key_id, key, org_id, key_type, created_at,
+    expiration_date, tag, usage_count) plus the organization name it was
+    issued to.
+    """
+    creds = _get_credentials()
+    url = f"{DBOS_CLOUD_URL}/v1alpha1/{_path(creds['organization'])}/conductor-api-keys"
+    async with httpx.AsyncClient() as http:
+        response = await http.post(
+            url,
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {creds['token']}",
+            },
+            timeout=TIMEOUT,
+        )
+    if response.is_error:
+        raise RuntimeError(f"Could not create a license key: {_cloud_error(response)}")
+    result: dict[str, Any] = response.json()
+    if not result.get("key"):
+        raise RuntimeError("DBOS Cloud returned no license key")
+    result["organization"] = creds["organization"]
+    return result
+
+
 async def login() -> dict[str, str]:
     """Start login flow - returns URL for user to visit."""
     async with httpx.AsyncClient() as http:
