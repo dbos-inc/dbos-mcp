@@ -42,6 +42,9 @@ Credentials are stored in `~/.dbos-mcp/credentials`.
 - `resume_workflow` - Resume a pending or failed workflow
 - `fork_workflow` - Fork a workflow from a specific step
 
+#### Self-Hosted Conductor
+- `create_license_key` - Create a limited-time trial license key for a [self-hosted Conductor](https://docs.dbos.dev/conductor/self-hosting/hosting-conductor)
+
 #### Authentication
 - `login` - Start login flow (returns URL to login page)
 - `login_complete` - Complete login after authenticating

@@ -1012,6 +1012,48 @@ async def set_latest_application_version(
     }
 
 
+@mcp.tool()
+async def create_license_key() -> dict[str, Any]:
+    """Create a limited-time trial license key for a self-hosted DBOS Conductor.
+
+    This is a trial key: it expires after a limited time (see expires_at). A
+    self-hosted Conductor needs a license key to start: pass it as the
+    DBOS_CONDUCTOR_LICENSE_KEY environment variable. DBOS Cloud issues the key
+    to the logged-in user's organization and decides its type and how long it
+    lasts. The organization's plan may limit how many keys it can create.
+
+    Each call creates a new key, so only call this when the user asks for one.
+    When you give the user the key, tell them it is a limited-time trial key
+    and when it expires. The key is a secret and is not shown again: give it to
+    the user once, and do not write it to files or logs unless they ask you to.
+
+    Returns:
+        license_key (string): The limited-time trial key. Pass it to self-hosted Conductor as DBOS_CONDUCTOR_LICENSE_KEY
+        key_id (string): Identifier for the key, safe to share (e.g., with DBOS support)
+        key_type (string): The kind of license (e.g., "free" or "pro")
+        created_at (string): When the key was created (ISO 8601)
+        expires_at (string, optional): When the trial key expires (ISO 8601); null if it does not expire
+        organization (string): The organization the key was issued to
+        message (string): Confirmation message
+    """
+    result = await client.create_license_key()
+    expires_at = result.get("expiration_date")
+    expiry = f"It expires {expires_at}." if expires_at else "It does not expire."
+    return {
+        "message": (
+            f"License key created for organization {result['organization']}. "
+            f"{expiry} Pass it to self-hosted Conductor as DBOS_CONDUCTOR_LICENSE_KEY. "
+            "It will not be shown again."
+        ),
+        "license_key": result["key"],
+        "key_id": result.get("key_id"),
+        "key_type": result.get("key_type"),
+        "created_at": result.get("created_at"),
+        "expires_at": expires_at,
+        "organization": result["organization"],
+    }
+
+
 def main() -> None:
     mcp.run()
 
